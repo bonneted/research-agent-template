@@ -2,6 +2,8 @@
 
 A project skeleton for doing research with an AI coding agent: your sources, a wiki the agent maintains, and your code in one folder.
 
+Introduced in the R2D talk *Doing research with AI agents* ([slides](https://kuleuven-my.sharepoint.com/:p:/g/personal/damien_bonnet-eymard_kuleuven_be/IQBK4bvp7q7dRLNW9tb_hbRNAa9u_0rz_Jy6gG6XreB1fV8?e=vPFlSq), KU Leuven login).
+
 ```
 resources/        papers (<citekey>.pdf) and legacy material. Outside git, never edited
 references.bib    reference list, exported from Zotero
