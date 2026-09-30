@@ -17,10 +17,6 @@ from fetch import manifest, retrieve
 
 RESOURCES = "resources"
 
-# An HTTPS remote that refuses us (a private project) would otherwise make git wait
-# for a password on the terminal instead of failing.
-_GIT_ENV = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}
-
 
 class GitError(Exception):
     """A git command failed; the message is git's reason."""
@@ -31,7 +27,9 @@ def git(*args: str, cwd: Path) -> str:
     process = subprocess.run(
         ["git", *args],
         cwd=cwd,
-        env=_GIT_ENV,
+        # An HTTPS remote that refuses us (a private project) would otherwise make git
+        # wait for a password on the terminal instead of failing.
+        env={**os.environ, "GIT_TERMINAL_PROMPT": "0"},
         stdin=subprocess.DEVNULL,
         capture_output=True,
         encoding="utf-8",
@@ -95,9 +93,9 @@ def _clone(code: manifest.Code, resources: Path) -> str | None:
         git("-c", "advice.detachedHead=false", "checkout", "--quiet", commit, cwd=work)
         if fresh:
             partial.rename(clone)
-    except GitError:
+    except (GitError, OSError) as error:
         shutil.rmtree(partial, ignore_errors=True)
-        raise
+        raise GitError(str(error)) if isinstance(error, OSError) else error
     return f"{path} cloned" if fresh else f"{path} moved to {commit[:12]}"
 
 

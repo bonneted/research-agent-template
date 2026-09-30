@@ -110,7 +110,7 @@ def bibliography(project: Path) -> dict[str, Entry]:
 
 
 def _entries(
-    path: Path, data: dict[str, Any], section: str, fields: tuple[str, ...]
+    data: dict[str, Any], section: str, fields: tuple[str, ...]
 ) -> list[dict[str, Any]]:
     """The entries of one section, each checked to name a plain file and give `fields` as text."""
     listed = data.get(section) or []
@@ -149,7 +149,7 @@ def load(project: Path) -> Resources:
     if not isinstance(data, dict):
         raise ManifestError(f"{FILENAME}: expected 'code' and 'data' lists")
     code = []
-    for entry in _entries(path, data, "code", ("name", "url", "commit")):
+    for entry in _entries(data, "code", ("name", "url", "commit")):
         # A branch or tag would move under the pin: only a commit keeps it.
         if not _COMMIT.fullmatch(entry["commit"]):
             raise ManifestError(
@@ -163,7 +163,7 @@ def load(project: Path) -> Resources:
             )
         code.append(Code(entry["name"], entry["url"], entry["commit"], source_of))
     data_resources = []
-    for entry in _entries(path, data, "data", ("name", "source", "sha256")):
+    for entry in _entries(data, "data", ("name", "source", "sha256")):
         sha256 = entry["sha256"].lower()
         if not _SHA256.fullmatch(sha256):
             raise ManifestError(
