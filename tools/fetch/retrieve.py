@@ -1,0 +1,221 @@
+"""Retrieval of a document's PDF from the web, for `fetch`.
+
+Each source answers one question: given a bibliography entry, here are its PDF's bytes,
+or None. The sources are tried in order: the Zotero Web API when the user configured
+it, then arXiv, then Unpaywall by DOI. Their configuration is the user's
+`$XDG_CONFIG_HOME/research-agent/retrieval.yaml` (by default `~/.config/research-agent/`), never in git:
+
+    zotero:
+      library: users/1234567     # or groups/<id>
+      api_key: <a key with read access to the library and its files>
+    email: you@example.org       # Unpaywall asks for one; without it, it is skipped
+"""
+
+import json
+import os
+import urllib.error
+import urllib.parse
+import urllib.request
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Protocol
+
+import yaml
+
+from fetch.manifest import Entry
+
+CONFIG = Path("research-agent") / "retrieval.yaml"
+
+# Fetches a URL with the given headers; returns the body, or raises `OSError`.
+Get = Callable[[str, dict[str, str]], bytes]
+
+
+class RetrievalError(Exception):
+    """A source failed to answer: the network, its API or its configuration."""
+
+
+class Retriever(Protocol):
+    """A source of PDFs."""
+
+    name: str
+
+    def retrieve(self, entry: Entry) -> bytes | None:
+        """The PDF of `entry`, or None if this source does not have it.
+
+        Raises `RetrievalError` if the source could not be asked.
+        """
+
+
+def _is_pdf(body: bytes) -> bool:
+    return body.startswith(b"%PDF")
+
+
+def _get(url: str, headers: dict[str, str]) -> bytes:
+    request = urllib.request.Request(
+        url, headers={"User-Agent": "research-agent-template (fetch)", **headers}
+    )
+    with urllib.request.urlopen(request, timeout=30) as response:
+        return response.read()
+
+
+def _ask(get: Get, url: str, headers: dict[str, str] | None = None) -> bytes | None:
+    """The body at `url`, None if it is not there, or `RetrievalError` if it cannot be asked."""
+    try:
+        return get(url, headers or {})
+    except urllib.error.HTTPError as error:
+        if error.code == 404:
+            return None
+        raise RetrievalError(f"{url}: {error}") from error
+    except OSError as error:
+        raise RetrievalError(f"{url}: {error}") from error
+
+
+@dataclass
+class Zotero:
+    """The PDF attached to the item with the citekey in a Zotero library, by its Web API."""
+
+    library: str
+    api_key: str
+    get: Get = _get
+    name: str = "Zotero"
+
+    def _ask(self, path: str) -> bytes | None:
+        return _ask(
+            self.get,
+            f"https://api.zotero.org/{self.library}/{path}",
+            {"Zotero-API-Key": self.api_key, "Zotero-API-Version": "3"},
+        )
+
+    def _file(self, key: str) -> bytes | None:
+        """An attachment's file; None if it cannot be had, so the next one is tried."""
+        try:
+            return self._ask(f"items/{key}/file")
+        except RetrievalError:
+            return None
+
+    def _json(self, path: str) -> list[dict]:
+        body = self._ask(path)
+        try:
+            return json.loads(body) if body else []
+        except ValueError as error:
+            raise RetrievalError(f"Zotero answered {path} with no JSON") from error
+
+    def retrieve(self, entry: Entry) -> bytes | None:
+        query = urllib.parse.quote(entry.citekey)
+        # Zotero 7 keeps the citekey in its own field; Better BibTeX before it, in Extra.
+        items = [
+            item
+            for item in self._json(f"items?q={query}&qmode=everything&format=json")
+            if item.get("data", {}).get("citationKey") == entry.citekey
+            or f"Citation Key: {entry.citekey}"
+            in item.get("data", {}).get("extra", "").splitlines()
+        ]
+        for item in items:
+            for child in self._json(f"items/{item['key']}/children?format=json"):
+                if child.get("data", {}).get("contentType") == "application/pdf":
+                    body = self._file(child["key"])
+                    if body and _is_pdf(body):
+                        return body
+        return None
+
+
+@dataclass
+class Arxiv:
+    """The PDF of a preprint, by its arXiv identifier."""
+
+    get: Get = _get
+    name: str = "arXiv"
+
+    def retrieve(self, entry: Entry) -> bytes | None:
+        if entry.arxiv is None:
+            return None
+        body = _ask(self.get, f"https://arxiv.org/pdf/{entry.arxiv}")
+        return body if body and _is_pdf(body) else None
+
+
+@dataclass
+class Unpaywall:
+    """The open-access PDF Unpaywall knows of, by DOI."""
+
+    email: str
+    get: Get = _get
+    name: str = "Unpaywall"
+
+    def retrieve(self, entry: Entry) -> bytes | None:
+        if entry.doi is None:
+            return None
+        doi = urllib.parse.quote(entry.doi, safe="/")
+        email = urllib.parse.quote(self.email)
+        body = _ask(self.get, f"https://api.unpaywall.org/v2/{doi}?email={email}")
+        if not body:
+            return None
+        try:
+            record = json.loads(body)
+        except ValueError as error:
+            raise RetrievalError(
+                f"Unpaywall answered {entry.doi} with no JSON"
+            ) from error
+        locations = [record.get("best_oa_location")] + (
+            record.get("oa_locations") or []
+        )
+        for url in dict.fromkeys(
+            location.get("url_for_pdf") for location in locations if location
+        ):
+            if url:
+                # A publisher refusing one copy leaves the others to try.
+                try:
+                    pdf = _ask(self.get, url)
+                except RetrievalError:
+                    continue
+                if pdf and _is_pdf(pdf):
+                    return pdf
+        return None
+
+
+def configured(get: Get = _get) -> tuple[list[Retriever], list[str]]:
+    """The sources the user's configuration allows, in order; and what is wrong with it."""
+    home = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
+    path = home / CONFIG
+    config: dict = {}
+    problems = []
+    if path.is_file():
+        try:
+            config = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        except yaml.YAMLError as error:
+            problems.append(f"{path}: {error}")
+        if not isinstance(config, dict):
+            problems.append(f"{path}: expected a mapping")
+            config = {}
+    sources: list[Retriever] = []
+    zotero = config.get("zotero")
+    if zotero is not None:
+        if (
+            isinstance(zotero, dict)
+            and isinstance(zotero.get("library"), str)
+            and isinstance(zotero.get("api_key"), str)
+        ):
+            sources.append(Zotero(zotero["library"].strip("/"), zotero["api_key"], get))
+        else:
+            problems.append(f"{path}: zotero needs a library and an api_key")
+    sources.append(Arxiv(get))
+    email = config.get("email")
+    if email:
+        sources.append(Unpaywall(str(email), get))
+    return sources, problems
+
+
+def retrieve(
+    entry: Entry, sources: Sequence[Retriever]
+) -> tuple[bytes | None, list[str]]:
+    """The PDF of `entry` from the first source that has it; and each source's failure."""
+    failures = []
+    for source in sources:
+        try:
+            pdf = source.retrieve(entry)
+        except RetrievalError as error:
+            failures.append(f"{source.name}: {error}")
+            continue
+        if pdf is not None:
+            return pdf, failures
+    return None, failures

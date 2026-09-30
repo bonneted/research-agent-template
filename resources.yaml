@@ -1,0 +1,3 @@
+# Code and data resources, fetched into resources/ by `uv run fetch` (format in resources/README.md).
+code: []
+data: []
