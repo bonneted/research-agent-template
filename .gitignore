@@ -2,9 +2,6 @@
 resources/*
 !resources/README.md
 
-# Claude Code mirror of .agents/skills (see README)
-.claude/skills/
-
 # Obsidian per-user state
 docs/.obsidian/workspace*.json
 

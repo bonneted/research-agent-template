@@ -10,9 +10,10 @@ Why the project is built the way it is. Terms follow [[CONTEXT]]; hard-to-revers
 
 ## Sources
 
-Papers, named by citekey from `references.bib`; PDFs in `resources/papers/`.
+Documents, named by citekey from `references.bib`, and code resources, named as in `resources.yaml`; all in `resources/`.
 
 <!-- - [[citekey]]: author, what it is for us -->
+<!-- - [[name]]: code, what it is for us -->
 
 ## Open
 
