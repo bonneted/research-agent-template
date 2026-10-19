@@ -1,8 +1,9 @@
 """The project's resource manifest: its bibliography, and its list of code and data.
 
-The bibliography (`references.bib`, exported from Zotero) names the documents by citekey;
-`resources.yaml` lists the code resources, each at a pinned commit, and the data
-resources, each with its checksum. A project without them has no resources.
+The bibliography (`references.bib`, written from a Zotero collection by `refs`) names the
+documents by citekey; `resources.yaml` names that collection and lists the code
+resources, each at a pinned commit, and the data resources, each with its checksum. A
+project without them has no resources.
 """
 
 import re
@@ -65,10 +66,12 @@ class Data:
 
 @dataclass(frozen=True)
 class Resources:
-    """The code and data a project lists."""
+    """The code and data a project lists, and the Zotero collection of its documents."""
 
     code: list[Code]
     data: list[Data]
+    # A collection's key, or its path of names from the library's top (`Projects/beam`).
+    zotero_collection: str | None = None
 
 
 def is_plain(name: str) -> bool:
@@ -101,6 +104,14 @@ def entries(text: str) -> dict[str, Entry]:
             arxiv = found_url.group(1)
         found[key] = Entry(key, fields.get("doi") or None, arxiv)
     return found
+
+
+def project(start: Path) -> Path:
+    """The project folder holding `start`: the nearest one with a `pyproject.toml`."""
+    for folder in [start, *start.parents]:
+        if (folder / "pyproject.toml").is_file():
+            return folder
+    return start
 
 
 def bibliography(project: Path) -> dict[str, Entry]:
@@ -148,6 +159,9 @@ def load(project: Path) -> Resources:
         raise ManifestError(f"{FILENAME}: {error}") from error
     if not isinstance(data, dict):
         raise ManifestError(f"{FILENAME}: expected 'code' and 'data' lists")
+    collection = data.get("zotero_collection")
+    if collection is not None and not isinstance(collection, str):
+        raise ManifestError(f"{FILENAME}: zotero_collection is not a collection's name")
     code = []
     for entry in _entries(data, "code", ("name", "url", "commit")):
         # A branch or tag would move under the pin: only a commit keeps it.
@@ -170,4 +184,4 @@ def load(project: Path) -> Resources:
                 f"{FILENAME}: data resource {entry['name']} has a sha256 that is not 64 hex digits"
             )
         data_resources.append(Data(entry["name"], entry["source"], sha256))
-    return Resources(code, data_resources)
+    return Resources(code, data_resources, collection or None)

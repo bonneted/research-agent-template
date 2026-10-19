@@ -1,8 +1,6 @@
 # Wiki
 
-Why the project is built the way it is. Terms follow [[CONTEXT]]; hard-to-reverse choices are in `docs/adr/`.
-
-**Parsimony rule:** one note per source or concept. A note states only what this project uses or rejects from its subject, with a pointer to where it's used.
+Why the project is built the way it is. Terms follow [[CONTEXT]]; hard-to-reverse choices are in `docs/adr/`. One note per source or concept.
 
 ## Concepts
 

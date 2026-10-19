@@ -7,9 +7,10 @@ Start from `docs/wiki/index.md`; vocabulary is in `docs/CONTEXT.md`, decisions i
 ## Layout
 
 - **`resources/`** is outside git and read-only: `papers/<citekey>.pdf`, `code/<name>/`, `data/<name>`, `legacy/` (anything else). Extract PDF text with `pdftotext` if available, otherwise `pypdf`.
-- **`references.bib`** and **`resources.yaml`** are the resource manifest: every document, exported from Zotero (cite in docs as `[@citekey]`); every code resource at a pinned commit and dataset with its sha256. `uv run fetch` brings what they list into `resources/` and prints what is still missing.
+- **`references.bib`** and **`resources.yaml`** are the resource manifest: every document (cite in docs as `[@citekey]`), and every code resource at a pinned commit and dataset with its sha256. `uv run fetch` brings what they list into `resources/` and prints what is still missing.
+- **`references.bib` is written by `uv run refs`, never by hand or by you.** Add a reference with `uv run refs add <DOI | arXiv id | URL>`: it takes the metadata from Crossref, DataCite or arXiv and prints the citekey. A thesis, report or slides: ask the user to add it in Zotero, then `uv run refs pull`.
 - **`docs/`** is an Obsidian vault: `wiki/`, `CONTEXT.md`, `adr/`. Link notes with `[[note-name]]`.
-- **`src/`, `tests/`** hold the code; `tools/fetch/` is the `fetch` command. Use `uv` for everything: `uv run python -m pytest`.
+- **`src/`, `tests/`** hold the code; `tools/fetch/` holds the `fetch` and `refs` commands. Use `uv` for everything: `uv run python -m pytest`.
 
 ## The wiki
 

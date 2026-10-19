@@ -9,6 +9,7 @@ it, then arXiv, then Unpaywall by DOI. Their configuration is the user's
       library: users/1234567     # or groups/<id>
       api_key: <a key with read access to the library and its files>
     email: you@example.org       # Unpaywall asks for one; without it, it is skipped
+    upload_pdfs: false           # true: attach the PDFs found elsewhere to their Zotero item
 """
 
 import json
@@ -173,8 +174,8 @@ class Unpaywall:
         return None
 
 
-def configured(get: Get = _get) -> tuple[list[Retriever], list[str]]:
-    """The sources the user's configuration allows, in order; and what is wrong with it."""
+def settings() -> tuple[dict, list[str], Path]:
+    """The user's configuration, what is wrong with it, and its path."""
     home = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
     path = home / CONFIG
     config: dict = {}
@@ -187,6 +188,12 @@ def configured(get: Get = _get) -> tuple[list[Retriever], list[str]]:
         if not isinstance(config, dict):
             problems.append(f"{path}: expected a mapping")
             config = {}
+    return config, problems, path
+
+
+def configured(get: Get = _get) -> tuple[list[Retriever], list[str]]:
+    """The sources the user's configuration allows, in order; and what is wrong with it."""
+    config, problems, path = settings()
     sources: list[Retriever] = []
     zotero = config.get("zotero")
     if zotero is not None:
@@ -207,8 +214,10 @@ def configured(get: Get = _get) -> tuple[list[Retriever], list[str]]:
 
 def retrieve(
     entry: Entry, sources: Sequence[Retriever]
-) -> tuple[bytes | None, list[str]]:
-    """The PDF of `entry` from the first source that has it; and each source's failure."""
+) -> tuple[bytes | None, str | None, list[str]]:
+    """The PDF of `entry` and the name of the first source that has it; and each
+    source's failure.
+    """
     failures = []
     for source in sources:
         try:
@@ -217,5 +226,5 @@ def retrieve(
             failures.append(f"{source.name}: {error}")
             continue
         if pdf is not None:
-            return pdf, failures
-    return None, failures
+            return pdf, source.name, failures
+    return None, None, failures

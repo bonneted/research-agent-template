@@ -6,7 +6,7 @@ description: Digest a resource into the wiki, a document from references.bib or 
 # Digest a resource
 
 1. **Scope.** List the resources the manifest names: each citekey of `references.bib` and each code resource of `resources.yaml`. A code resource with `source_of: <citekey>` is that document's source form: it is digested as the document, never as code. Work through each listed resource with no note in `docs/wiki/sources/`. One not in `resources/` yet: run `uv run fetch`, and put what it still reports missing on a list for the user.
-2. **Reference.** A paper the user asks for that `references.bib` lacks: build its entry from the DOI (Crossref), add it, and tell the user to add the paper to Zotero so the next export keeps it. It joins the list of step 1.
+2. **Reference.** A paper the user asks for that `references.bib` lacks: add it with `uv run refs add <DOI | arXiv id | URL>`, never by writing BibTeX; it prints the citekey. Then `uv run fetch` for its PDF. A thesis, report or slides has no identifier `refs` takes: ask the user to add it in Zotero, then `uv run refs pull`. It joins the list of step 1.
 3. **Read** the full text, methods and results, not only the abstract.
    - A document with a source form: the source at `resources/code/<name>/`, for LaTeX from the main `.tex` through its `\input` and `\include`. Quote equations and values from it as written.
    - Any other document: `resources/papers/<citekey>.pdf` (`pdftotext`, else `pypdf`).
@@ -41,7 +41,7 @@ description: Digest a resource into the wiki, a document from references.bib or 
      ```
 
 5. **Concepts.** For each idea the project reuses, add a line to the matching `docs/wiki/concepts/` note, or create one when two sources or the code need it.
-6. **Reading list.** References a document cites that the project needs go in `docs/wiki/reading-list.md`, with why and where they are cited.
+6. **Reading list.** References a document cites that the project needs go in `docs/wiki/reading-list.md`, with why and where they are cited. Remove the rows of the resources you digested.
 7. **Index.** Add each note to `docs/wiki/index.md` under Sources, one line: `[[citekey]]: author, what it is for us`, or `[[name]]: code, what it is for us`.
 
 Done when every resource of step 1 has a note linked from the index or is on the list for the user, and every `[[link]]` you wrote resolves to a file.

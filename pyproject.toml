@@ -3,10 +3,11 @@ name = "research-project"
 version = "0.1.0"
 description = "Rename me"
 requires-python = ">=3.11"
-dependencies = ["numpy", "pyyaml"]
+dependencies = ["pyyaml"]
 
 [project.scripts]
 fetch = "fetch.cli:main"
+refs = "fetch.refs:main"
 
 [dependency-groups]
 dev = ["pytest"]
