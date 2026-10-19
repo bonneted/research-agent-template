@@ -1,6 +1,7 @@
 """`fetch`: bring what the project's resource manifest lists into `resources/`.
 
-It retrieves each document of `references.bib` without a PDF in `resources/papers/`
+It first pulls `references.bib` from the project's Zotero collection (see `refs`), when
+the user has configured Zotero and Zotero answers. It then retrieves each document of `references.bib` without a PDF in `resources/papers/`
 (see `retrieve`), clones each code resource of `resources.yaml` into
 `resources/code/<name>/` at its commit, checks each dataset in `resources/data/`
 against its sha256, and ends with the list of what is still missing.
@@ -13,7 +14,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from fetch import manifest, retrieve
+from fetch import manifest, refs, retrieve, zotero
 
 RESOURCES = "resources"
 
@@ -124,20 +125,73 @@ def _save(pdf: bytes, paper: Path) -> None:
         raise
 
 
+def _pull(
+    project: Path, library: zotero.Library | None
+) -> tuple[list[str], list[str], zotero.Library | None]:
+    """Pull the project's bibliography from Zotero, or skip it with one line.
+
+    Returns the report lines, the failures, and the library: the user's configured one
+    if `library` is None, and None if it cannot be had.
+    """
+    if library is None:
+        library, reason = zotero.configured()
+        if library is None:
+            return [f"zotero: skipped ({reason})"], [], None
+    try:
+        lines, _ = refs.pull(project, library)
+    except refs.NoCollection as error:
+        return [f"zotero: skipped ({error})"], [], library
+    except zotero.Unreachable as error:
+        # The committed bibliography stays the source until Zotero answers.
+        return [f"zotero: skipped ({error})"], [], None
+    except (zotero.ZoteroError, manifest.ManifestError) as error:
+        return [], [str(error)], library
+    failed = [
+        line.removeprefix("FAILED: ") for line in lines if line.startswith("FAILED: ")
+    ]
+    return [line for line in lines if not line.startswith("FAILED: ")], failed, library
+
+
+def _attach(
+    library: zotero.Library,
+    citekey: str,
+    pdf: bytes,
+    notes: list[str],
+    failures: list[str],
+) -> bool:
+    """Attach a retrieved PDF to the Zotero item with the citekey; returns success."""
+    path = f"papers/{citekey}.pdf"
+    try:
+        library.attach_pdf(citekey, pdf)
+    except zotero.QuotaFull:
+        notes.append(
+            f"WARNING: {path} not attached in Zotero: its file storage is full"
+        )
+        return False
+    except zotero.ZoteroError as error:
+        failures.append(f"{path} not attached in Zotero: {error}")
+        return False
+    return True
+
+
 def fetch(
-    project: Path, sources: list[retrieve.Retriever] | None = None
+    project: Path,
+    sources: list[retrieve.Retriever] | None = None,
+    library: zotero.Library | None = None,
 ) -> tuple[list[str], bool]:
     """Bring what the resource manifest of the project at `project` lists into its `resources/`.
 
-    A missing document is asked of `sources` in turn, by default those the user's
-    configuration allows (see `retrieve`).
+    The bibliography is first pulled from the project's collection in `library`, by
+    default the user's configured one; without one, or with Zotero unreachable, the
+    committed bibliography is read as it is. A missing document is then asked of
+    `sources` in turn, by default those the user's configuration allows (see
+    `retrieve`), and attached to its Zotero item if the configuration asks for it.
 
     Returns a line per thing done, a line per failure, and the list of what is still
     missing; and success. Something only missing is not a failure.
     """
     resources = project / RESOURCES
-    notes: list[str] = []
-    failures: list[str] = []
+    notes, failures, library = _pull(project, library)
     missing: list[str] = []
     documents = manifest.bibliography(project)
     for key, entry in documents.items():
@@ -153,7 +207,7 @@ def fetch(
         if sources is None:
             sources, problems = retrieve.configured()
             failures += problems
-        pdf, errors = retrieve.retrieve(entry, sources)
+        pdf, source, errors = retrieve.retrieve(entry, sources)
         notes += [f"{path}: {error}" for error in errors]
         if pdf is None:
             missing.append(path)
@@ -163,7 +217,15 @@ def fetch(
         except OSError as error:
             failures.append(f"{path}: retrieved but not saved: {error}")
             continue
-        notes.append(f"{path} retrieved")
+        if (
+            library is not None
+            and library.upload_pdfs
+            and source != retrieve.Zotero.name
+            and _attach(library, key, pdf, notes, failures)
+        ):
+            notes.append(f"{path} retrieved, attached in Zotero")
+        else:
+            notes.append(f"{path} retrieved")
     try:
         listed = manifest.load(project)
     except manifest.ManifestError as error:
@@ -200,21 +262,13 @@ def fetch(
     return lines or ["ok"], not failures
 
 
-def _project(start: Path) -> Path:
-    """The project folder holding `start`: the nearest one with a `pyproject.toml`."""
-    for folder in [start, *start.parents]:
-        if (folder / "pyproject.toml").is_file():
-            return folder
-    return start
-
-
 def main(argv: list[str] | None = None) -> int:
     """Run `fetch` on the project holding the current folder; returns the exit code."""
     argparse.ArgumentParser(
         prog="fetch",
-        description="Retrieve missing PDFs, clone code resources at their commit, check "
+        description="Pull references.bib from Zotero, retrieve missing PDFs, clone code resources at their commit, check "
         "data checksums, and list what is missing.",
     ).parse_args(argv)
-    lines, ok = fetch(_project(Path.cwd()))
+    lines, ok = fetch(manifest.project(Path.cwd()))
     print("\n".join(lines))
     return 0 if ok else 1

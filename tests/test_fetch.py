@@ -191,7 +191,7 @@ def test_second_fetch_leaves_the_clone_alone_without_its_remote(
     lines, ok = fetch(project, [])
 
     assert ok, lines
-    assert lines == ["ok"]
+    assert [line for line in lines if not line.startswith("zotero: skipped")] == []
 
 
 def test_bumped_pin_moves_the_clone_to_it(project: Path, tmp_path: Path) -> None:
@@ -273,7 +273,7 @@ def test_data_resource_with_its_checksum_passes(project: Path) -> None:
     lines, ok = fetch(project, [])
 
     assert ok, lines
-    assert lines == ["ok"]
+    assert [line for line in lines if not line.startswith("zotero: skipped")] == []
 
 
 def test_data_resource_with_a_wrong_checksum_is_reported(project: Path) -> None:
