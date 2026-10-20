@@ -519,3 +519,17 @@ def test_a_full_zotero_storage_is_a_warning(project: Path, web: Web) -> None:
     ) in lines
     # The attachment made for it is not left empty in the library.
     assert len(web.items) == 1
+
+
+def test_software_programmers_are_its_authors() -> None:
+    from fetch.bibtex import fields
+
+    data = {
+        "itemType": "computerProgram",
+        "title": "A library",
+        "creators": [
+            {"creatorType": "programmer", "firstName": "Ada", "lastName": "Lovelace"},
+            {"creatorType": "programmer", "firstName": "Alan", "lastName": "Turing"},
+        ],
+    }
+    assert ("author", "Lovelace, Ada and Turing, Alan") in fields(data)

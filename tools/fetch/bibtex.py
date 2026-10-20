@@ -65,7 +65,8 @@ def fields(data: dict) -> list[tuple[str, str]]:
     pages = data.get("pages", "")
     archive, _, eprint = data.get("archiveID", "").partition(":")
     found = [
-        ("author", _people(data, "author")),
+        # Software credits its programmers, which BibTeX has no field for but author.
+        ("author", _people(data, "author") or _people(data, "programmer")),
         ("editor", _people(data, "editor")),
         ("title", data.get("title")),
         (
