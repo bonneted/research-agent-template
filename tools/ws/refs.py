@@ -4,11 +4,11 @@ import re
 from pathlib import Path
 
 from ws import bibtex, lookup, manifest, resources, retrieve, zotero
-from ws.manifest import Repository
+from ws.manifest import Workspace
 
-# A repository's collection, under this one at the library's top, unless its line in
-# the workspace manifest names another by `zotero_collection`.
-PARENT = "spimat"
+# A repository's collection is `<zotero_root>/<repository>`, under the workspace's
+# `zotero_root` at the library's top, unless its line in the workspace manifest names
+# another by `zotero_collection`.
 # A Pandoc citation group, such as `[@a; @b, p. 3]`.
 _CITATIONS = re.compile(r"\[[^\[\]]*@[^\[\]]*\]")
 
@@ -29,15 +29,14 @@ def _citing(repository: Path, key: str) -> list[str]:
 
 
 def _collection(
-    repositories: list[Repository], name: str, library: zotero.Library
+    workspace: Workspace, name: str, library: zotero.Library
 ) -> tuple[str | None, str]:
     """The key of the repository's collection, or None if it has none; and its description."""
-    repository = next(
-        repository for repository in repositories if repository.name == name
-    )
+    repository = workspace.repository(name)
     if repository.zotero_collection:
         return repository.zotero_collection, repository.zotero_collection
-    return library.collection([PARENT, name]), f"{PARENT}/{name}"
+    parent = workspace.zotero_root
+    return library.collection([parent, name]), f"{parent}/{name}"
 
 
 def _no_collection(described: str) -> str:
@@ -49,7 +48,7 @@ def _no_collection(described: str) -> str:
 
 def pull(
     root: Path,
-    repositories: list[Repository],
+    workspace: Workspace,
     name: str,
     library: zotero.Library,
     required: bool = True,
@@ -60,11 +59,13 @@ def pull(
     is then left as it is. Raises `zotero.ZoteroError` if Zotero cannot be read.
     Returns the report lines and success.
     """
-    collection, described = _collection(repositories, name, library)
+    collection, described = _collection(workspace, name, library)
     if collection is None and not required:
         return [
-            f"{name}: no Zotero collection {described}, "
-            f"{resources.BIBLIOGRAPHY} left as it is"
+            (
+                f"{name}: no Zotero collection {described}, "
+                f"{resources.BIBLIOGRAPHY} left as it is"
+            )
         ], True
     if collection is None:
         return [f"{name}: FAILED: {_no_collection(described)}"], False
@@ -114,7 +115,7 @@ def pull(
 
 def add(
     root: Path,
-    repositories: list[Repository],
+    workspace: Workspace,
     name: str,
     identifier: lookup.Identifier,
     library: zotero.Library,
@@ -125,7 +126,7 @@ def add(
     Raises `zotero.ZoteroError` if Zotero cannot be read or written.
     Returns the report lines and success.
     """
-    collection, described = _collection(repositories, name, library)
+    collection, described = _collection(workspace, name, library)
     if collection is None:
         return [f"{name}: FAILED: {_no_collection(described)}"], False
     existing = [
@@ -150,7 +151,7 @@ def add(
         key = library.unique_citekey(data, set())
         library.create({**data, "collections": [collection], "citationKey": key})
         lines = [f"{name}: added {key}"]
-    pulled, ok = pull(root, repositories, name, library)
+    pulled, ok = pull(root, workspace, name, library)
     return lines + pulled + [
         f"{name}: run `uv run ws fetch` in the hub to retrieve its PDF"
     ], ok

@@ -9,11 +9,13 @@ import os
 import re
 from pathlib import Path
 
+from ws import links
 from ws.git import ignore
+from ws.manifest import Workspace
 
-# Set it to keep the pool elsewhere, such as on another drive; a relative path is taken
-# from the workspace root.
-VARIABLE = "SPIMAT_RESOURCES"
+# `<NAME>_RESOURCES` keeps the pool elsewhere, such as on another drive; a relative path
+# is taken from the workspace root.
+SUFFIX = "RESOURCES"
 LINK = "resources"
 
 
@@ -22,9 +24,14 @@ LINK = "resources"
 _PLAIN = re.compile(r"\w[\w.:+-]*")
 
 
-def location(root: Path) -> Path:
+def variable(workspace: Workspace) -> str:
+    """The environment variable that moves the workspace's pool."""
+    return workspace.variable(SUFFIX)
+
+
+def location(root: Path, workspace: Workspace) -> Path:
     """Where the pool of the workspace at `root` is."""
-    configured = Path(os.environ.get(VARIABLE) or LINK).expanduser()
+    configured = Path(os.environ.get(variable(workspace)) or LINK).expanduser()
     return Path(os.path.abspath(root / configured))
 
 
@@ -56,21 +63,16 @@ def link(path: Path, pool: Path) -> list[str]:
     ignore(path, LINK)
     resources = path / LINK
     # Relative inside the workspace, so the workspace can move; absolute elsewhere.
-    target = (
-        os.path.relpath(pool, path) if pool.is_relative_to(path.parent) else str(pool)
+    made = links.directory(
+        resources, pool, absolute=not pool.is_relative_to(path.parent)
     )
-    if resources.is_symlink():
-        if os.readlink(resources) == target:
-            return []
-        resources.unlink()
-        resources.symlink_to(target, target_is_directory=True)
+    if made == links.MOVED:
         return [f"{LINK} relinked to {pool}"]
-    if resources.exists():
+    if made == links.BLOCKED:
         return [
             (
                 f"{LINK}/ is a folder, not a link to the pool: "
                 f"move what it holds into {pool} and delete it"
             )
         ]
-    resources.symlink_to(target, target_is_directory=True)
     return []

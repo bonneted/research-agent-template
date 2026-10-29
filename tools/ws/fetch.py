@@ -9,11 +9,11 @@ from pathlib import Path
 
 from ws import pool, refs, resources, retrieve, zotero
 from ws.git import GitError, git
-from ws.manifest import Repository
+from ws.manifest import Repository, Workspace
 
-# Set it to the name by which the machine that has a missing resource reaches this one
-# over ssh, when that is not this machine's host name.
-HOST_VARIABLE = "SPIMAT_SSH_HOST"
+# `<NAME>_SSH_HOST` is the name by which the machine that has a missing resource reaches
+# this one over ssh, when that is not this machine's host name.
+HOST_SUFFIX = "SSH_HOST"
 
 
 def _commit(clone: Path, commit: str) -> str | None:
@@ -216,19 +216,21 @@ def _retrieve(
     return True
 
 
-def _copy_command(pool_path: Path, missing: list[str]) -> list[str]:
+def _copy_command(
+    workspace: Workspace, pool_path: Path, missing: list[str]
+) -> list[str]:
     """A command that copies the missing resources into this pool from the pool of the
     machine it runs on, where they sit at the same place.
     """
-    # That machine's pool is its own SPIMAT_RESOURCES, or else where this one is.
+    # That machine's pool is its own `<NAME>_RESOURCES`, or else where this one is.
     home = Path.home()
     theirs = (
         f"$HOME/{pool_path.relative_to(home)}"
         if pool_path.is_relative_to(home)
         else str(pool_path)
     )
-    host = os.environ.get(HOST_VARIABLE) or socket.gethostname()
-    source = f'"${{{pool.VARIABLE}:-{theirs}}}/"'
+    host = os.environ.get(workspace.variable(HOST_SUFFIX)) or socket.gethostname()
+    source = f'"${{{pool.variable(workspace)}:-{theirs}}}/"'
     destination = f"{host}:{shlex.quote(f'{pool_path}/')}"
     return [
         "",
@@ -241,7 +243,7 @@ def _copy_command(pool_path: Path, missing: list[str]) -> list[str]:
 
 
 def _pull(
-    root: Path, repositories: list[Repository], library: zotero.Library | None
+    root: Path, workspace: Workspace, library: zotero.Library | None
 ) -> tuple[list[str], bool, zotero.Library | None]:
     """Pull every cloned repository's bibliography from Zotero, or skip it with one line.
 
@@ -249,16 +251,16 @@ def _pull(
     `library` is None, and None if it cannot be had.
     """
     if library is None:
-        library, reason = zotero.configured()
+        library, reason = zotero.configured(workspace=workspace.name)
         if library is None:
             return [f"zotero: skipped ({reason})"], True, None
     lines, ok = [], True
-    for repository in repositories:
+    for repository in _readable(workspace):
         if not (root / repository.name / ".git").exists():
             continue
         try:
             pulled, pulled_ok = refs.pull(
-                root, repositories, repository.name, library, required=False
+                root, workspace, repository.name, library, required=False
             )
         except zotero.Unreachable as error:
             # The committed bibliographies stay the source until Zotero answers.
@@ -270,9 +272,18 @@ def _pull(
     return lines, ok, library
 
 
+def _readable(workspace: Workspace) -> list[Repository]:
+    """The repositories `ws` may read: all but the off-limits one."""
+    return [
+        repository
+        for repository in workspace.repositories
+        if repository.role != "off-limits"
+    ]
+
+
 def fetch(
     root: Path,
-    repositories: list[Repository],
+    workspace: Workspace,
     sources: list[retrieve.Retriever] | None = None,
     library: zotero.Library | None = None,
 ) -> tuple[list[str], bool]:
@@ -287,9 +298,9 @@ def fetch(
     Returns the pull's report, a report line per repository, a line per failure and the
     copy command for what is missing; and success.
     """
-    pulled, pulled_ok, library = _pull(root, repositories, library)
-    pool_path = pool.location(root)
-    names = [repository.name for repository in repositories]
+    pulled, pulled_ok, library = _pull(root, workspace, library)
+    pool_path = pool.location(root, workspace)
+    names = [repository.name for repository in _readable(workspace)]
     notes: dict[str, list[str]] = {name: [] for name in names}
     warnings: dict[str, list[str]] = {name: [] for name in names}
     failures: dict[str, list[str]] = {name: [] for name in names}
@@ -323,7 +334,9 @@ def fetch(
             if key not in retrieved:
                 # The user's configuration is read only once something is missing.
                 if sources is None:
-                    sources, problems = retrieve.configured()
+                    sources, problems = retrieve.configured(
+                        workspace=workspace.name
+                    )
                     failures[name] += problems
                 retrieved[key] = _retrieve(
                     entry,
@@ -374,5 +387,5 @@ def fetch(
         lines += [f"{name}: WARNING: {warning}" for warning in warnings[name]]
         lines += [f"{name}: FAILED: {failure}" for failure in failures[name]]
     if missing:
-        lines += _copy_command(pool_path, list(missing))
+        lines += _copy_command(workspace, pool_path, list(missing))
     return lines, pulled_ok and not any(failures.values())

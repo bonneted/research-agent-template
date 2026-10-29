@@ -71,7 +71,7 @@ def test_code_resource_is_cloned_once_for_the_whole_workspace(
     synced: Workspace,
 ) -> None:
     url, first = code_remote(synced, "phd-code")
-    for name in ("spimat-hub", "spimat-framework"):
+    for name in ("demo-hub", "demo-framework"):
         write_resources(synced.root / name, code=[("phd-code", url, first)])
 
     result = synced.fetch()
@@ -125,7 +125,7 @@ def test_clone_follows_the_newest_pin_of_the_workspace(synced: Workspace) -> Non
     url, first = code_remote(synced, "phd-code")
     newer = push_commit(synced, "phd-code")
     write_resources(synced.hub, code=[("phd-code", url, newer)])
-    study = synced.root / "spimat-framework"
+    study = synced.root / "demo-framework"
     write_resources(study, code=[("phd-code", url, first)])
 
     result = synced.fetch()
@@ -137,7 +137,7 @@ def test_clone_follows_the_newest_pin_of_the_workspace(synced: Workspace) -> Non
     line = next(
         line
         for line in result.stdout.splitlines()
-        if line.startswith("spimat-framework:")
+        if line.startswith("demo-framework:")
     )
     assert (
         f"code/phd-code is at newer {newer[:12]}, this repository pins {first}" in line
@@ -157,7 +157,7 @@ def test_clone_with_uncommitted_changes_is_not_moved(synced: Workspace) -> None:
 
     assert result.returncode != 0
     assert (
-        "spimat-hub: FAILED: code/phd-code: uncommitted changes in the pool's clone, "
+        "demo-hub: FAILED: code/phd-code: uncommitted changes in the pool's clone, "
         f"left at {first[:12]}"
     ) in result.stdout
     assert git("rev-parse", "HEAD", cwd=clone) == first
@@ -171,7 +171,7 @@ def test_unreachable_commit_fails_and_leaves_no_clone(synced: Workspace) -> None
     result = synced.fetch()
 
     assert result.returncode != 0
-    assert "spimat-hub: FAILED: code/phd-code:" in result.stdout
+    assert "demo-hub: FAILED: code/phd-code:" in result.stdout
     assert list((synced.pool / "code").iterdir()) == []
 
 
@@ -212,7 +212,7 @@ def test_data_resource_with_a_wrong_checksum_is_reported(synced: Workspace) -> N
 
     assert result.returncode != 0
     line = next(line for line in result.stdout.splitlines() if "plate.h5" in line)
-    assert line.startswith("spimat-hub: FAILED: data/plate.h5")
+    assert line.startswith("demo-hub: FAILED: data/plate.h5")
     assert "checksum" in line and ABC in line
 
 
@@ -234,7 +234,7 @@ def test_missing_documents_and_data_are_listed_with_a_command_that_copies_them_i
     synced: Workspace, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     (synced.hub / "references.bib").write_text(BIBLIOGRAPHY)
-    study = synced.root / "spimat-framework"
+    study = synced.root / "demo-framework"
     (study / "references.bib").write_text(BIBLIOGRAPHY)
     write_resources(study, data=[("plate.h5", ABC)])
     (synced.pool / "papers").mkdir()
@@ -246,19 +246,19 @@ def test_missing_documents_and_data_are_listed_with_a_command_that_copies_them_i
     }.items():
         (laptop / path).parent.mkdir(parents=True, exist_ok=True)
         (laptop / path).write_bytes(content)
-    monkeypatch.setenv("SPIMAT_SSH_HOST", "compute")
+    monkeypatch.setenv("DEMO_SSH_HOST", "compute")
 
     result = synced.fetch()
 
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "spimat-hub: 1 missing" in result.stdout
-    assert "spimat-framework: 2 missing" in result.stdout
+    assert "demo-hub: 1 missing" in result.stdout
+    assert "demo-framework: 2 missing" in result.stdout
     command = result.stdout[result.stdout.index("rsync") :]
     assert f"compute:{synced.pool}/" in command
     # Run on the laptop; on one machine, the copy is local.
     subprocess.run(
         ["bash", "-c", command.replace("compute:", "")],
-        env={**os.environ, "SPIMAT_RESOURCES": str(laptop)},
+        env={**os.environ, "DEMO_RESOURCES": str(laptop)},
         check=True,
         capture_output=True,
     )
@@ -279,7 +279,7 @@ def test_malformed_resource_list_still_lists_missing_documents(
     result = synced.fetch()
 
     assert result.returncode != 0
-    assert "spimat-hub: FAILED:" in result.stdout
+    assert "demo-hub: FAILED:" in result.stdout
     assert "papers/raissi2019.pdf" in result.stdout.splitlines()
 
 
@@ -292,7 +292,7 @@ def test_bibliography_keys_are_read_from_entries_only(synced: Workspace) -> None
 
     assert result.returncode != 0
     assert "commented2020" not in result.stdout
-    assert "spimat-hub: FAILED:" in result.stdout and "'../escape'" in result.stdout
+    assert "demo-hub: FAILED:" in result.stdout and "'../escape'" in result.stdout
     assert "papers/../escape.pdf" not in result.stdout
 
 
@@ -318,7 +318,7 @@ def test_source_form_of_a_document_the_bibliography_lacks_is_reported(
 
     assert result.returncode != 0
     assert (
-        "spimat-hub: FAILED: resources.yaml: code resource phd-thesis is the source "
+        "demo-hub: FAILED: resources.yaml: code resource phd-thesis is the source "
         "form of bonnet2026Thesis, which references.bib does not list"
     ) in result.stdout.splitlines()
     # The clone is still made: only the link is wrong.
@@ -355,7 +355,7 @@ def test_code_of_a_document_the_bibliography_lacks_is_reported(
 
     assert result.returncode != 0
     assert (
-        "spimat-hub: FAILED: resources.yaml: code resource jaxpi2 is the code of "
+        "demo-hub: FAILED: resources.yaml: code resource jaxpi2 is the code of "
         "wang2026pinns, which references.bib does not list"
     ) in result.stdout.splitlines()
     assert "raissi2019, which" not in result.stdout
@@ -370,7 +370,7 @@ def test_code_of_one_citekey_needs_no_list(synced: Workspace) -> None:
     result = synced.fetch()
 
     assert (
-        "spimat-hub: FAILED: resources.yaml: code resource jaxpi2 is the code of "
+        "demo-hub: FAILED: resources.yaml: code resource jaxpi2 is the code of "
         "wang2026pinns, which references.bib does not list"
     ) in result.stdout.splitlines()
 
@@ -382,8 +382,10 @@ def test_code_of_one_citekey_needs_no_list(synced: Workspace) -> None:
         ("[raissi2019, 3]", "has a code_of that is not a citekey or a list of citekeys"),
         (
             "raissi2019\n    source_of: bonnet2025Thesis",
-            "has both a source_of and a code_of: a repository is a document's "
-            "source form or its code, not both",
+            (
+                "has both a source_of and a code_of: a repository is a document's "
+                "source form or its code, not both"
+            ),
         ),
     ],
 )

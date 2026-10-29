@@ -7,7 +7,6 @@ only where no request goes out.
 import pytest
 from conftest import Workspace
 from fakes import Web
-
 from ws import lookup, manifest, refs, retrieve, zotero
 from ws.fetch import fetch
 
@@ -38,15 +37,15 @@ def synced(workspace: Workspace) -> Workspace:
 
 @pytest.fixture
 def web() -> Web:
-    """A library with the collection of each repository under `spimat`."""
+    """A library with the collection of each repository under `demo`."""
     web = Web()
-    spimat = web.collection("spimat")
-    web.hub = web.collection("spimat-hub", spimat)
-    web.framework = web.collection("spimat-framework", spimat)
+    demo = web.collection("demo")
+    web.hub = web.collection("demo-hub", demo)
+    web.framework = web.collection("demo-framework", demo)
     return web
 
 
-def pull(workspace: Workspace, web: Web, name: str = "spimat-hub"):
+def pull(workspace: Workspace, web: Web, name: str = "demo-hub"):
     return refs.pull(workspace.root, manifest.load(workspace.hub), name, web.library())
 
 
@@ -59,7 +58,7 @@ def test_pull_writes_the_collection_in_the_fixed_form(
 
     assert ok, lines
     assert (synced.hub / "references.bib").read_text() == (
-        "% Written by `ws refs pull` from the Zotero collection spimat/spimat-hub.\n"
+        "% Written by `ws refs pull` from the Zotero collection demo/demo-hub.\n"
         "% Add a reference with `ws refs add`, never here.\n"
         "\n"
         "@article{raissi2019physics,\n"
@@ -131,9 +130,9 @@ def test_entry_gone_from_the_collection_is_removed_and_a_cited_one_warned(
     assert list(retrieve.entries((synced.hub / "references.bib").read_text())) == [
         "raissi2019physics"
     ]
-    assert "spimat-hub: references.bib: removed cited-one2011, forgotten2010" in lines
+    assert "demo-hub: references.bib: removed cited-one2011, forgotten2010" in lines
     assert (
-        "spimat-hub: WARNING: cited-one2011 is no longer in the collection, "
+        "demo-hub: WARNING: cited-one2011 is no longer in the collection, "
         "but docs/wiki/note.md cites it"
     ) in lines
     assert not any("WARNING: forgotten2010" in line for line in lines)
@@ -203,7 +202,7 @@ def test_read_only_key_pulls_but_fails_the_write_back(
     assert "citationKey" not in web.data(item)
     assert "@article{raissi2019physics," in (synced.hub / "references.bib").read_text()
     assert any(
-        line.startswith("spimat-hub: FAILED: the Zotero key is read-only")
+        line.startswith("demo-hub: FAILED: the Zotero key is read-only")
         for line in lines
     ), lines
 
@@ -229,7 +228,7 @@ def test_manifest_can_name_the_collection_by_key(synced: Workspace, web: Web) ->
 def test_pull_without_configuration_names_the_repository_it_is_run_from(
     synced: Workspace,
 ) -> None:
-    study = synced.root / "spimat-framework"
+    study = synced.root / "demo-framework"
     (study / "references.bib").write_text("@article{kept2020,\n}\n")
     (study / "docs").mkdir(exist_ok=True)
 
@@ -237,8 +236,8 @@ def test_pull_without_configuration_names_the_repository_it_is_run_from(
 
     assert result.returncode == 1
     assert (
-        "spimat-framework: FAILED: no Zotero configuration in "
-        f"{synced.tmp / 'config' / 'spimat' / 'retrieval.yaml'}"
+        "demo-framework: FAILED: no Zotero configuration in "
+        f"{synced.tmp / 'config' / 'research-ws' / 'retrieval.yaml'}"
     ) in result.stdout
     assert (study / "references.bib").read_text() == "@article{kept2020,\n}\n"
 
@@ -251,9 +250,9 @@ def test_pull_from_outside_any_repository_asks_for_one(synced: Workspace) -> Non
 
 
 def test_pull_names_a_repository_with_repo(synced: Workspace) -> None:
-    result = synced.run("refs", "pull", "--repo", "spimat-framework")
+    result = synced.run("refs", "pull", "--repo", "demo-framework")
 
-    assert "spimat-framework: FAILED: no Zotero configuration" in result.stdout
+    assert "demo-framework: FAILED: no Zotero configuration" in result.stdout
 
 
 def test_fetch_pulls_every_repository_before_retrieving(
@@ -266,10 +265,10 @@ def test_fetch_pulls_every_repository_before_retrieving(
 
     assert ok, lines
     assert "raissi2019physics" in (synced.hub / "references.bib").read_text()
-    framework = synced.root / "spimat-framework" / "references.bib"
+    framework = synced.root / "demo-framework" / "references.bib"
     assert "karniadakis2021physics" in framework.read_text()
     assert (
-        "spimat: no Zotero collection spimat/spimat, references.bib left as it is"
+        "demo: no Zotero collection demo/demo, references.bib left as it is"
         in lines
     )
     # What the pull wrote is what is retrieved.
@@ -321,7 +320,7 @@ CROSSREF_RAISSI = {
 }
 
 
-def add(workspace: Workspace, web: Web, identifier: str, name: str = "spimat-hub"):
+def add(workspace: Workspace, web: Web, identifier: str, name: str = "demo-hub"):
     return refs.add(
         workspace.root,
         manifest.load(workspace.hub),
@@ -351,7 +350,7 @@ def test_add_creates_the_item_from_crossref_in_the_collection_and_pulls(
         "lastName": "Karniadakis",
     }
     assert data["abstractNote"] == "We introduce physics-informed neural networks."
-    assert lines[0] == "spimat-hub: added raissi2019physics"
+    assert lines[0] == "demo-hub: added raissi2019physics"
     assert "run `uv run ws fetch` in the hub to retrieve its PDF" in lines[-1]
     text = (synced.hub / "references.bib").read_text()
     assert (
@@ -463,7 +462,7 @@ def test_add_reuses_the_item_already_in_the_library(
     assert len(web.items) == 2
     assert web.data(existing)["collections"] == [web.framework, web.hub]
     key = item["citationKey"]
-    assert lines[0] == f"spimat-hub: added {key}, already in Zotero"
+    assert lines[0] == f"demo-hub: added {key}, already in Zotero"
     assert key in retrieve.entries((synced.hub / "references.bib").read_text())
     assert not any(
         "crossref" in url or "arxiv.org/api" in url for _, url in web.requests
@@ -479,15 +478,15 @@ def test_add_refuses_anything_but_a_doi_or_arxiv_identifier(
     result = synced.run("refs", "add", identifier)
 
     assert result.returncode == 1
-    assert "spimat-hub: FAILED: " in result.stdout
+    assert "demo-hub: FAILED: " in result.stdout
     assert "add a thesis, report or slides by hand in Zotero" in result.stdout
 
 
 def test_add_without_configuration_says_so(synced: Workspace) -> None:
-    result = synced.run("refs", "add", "10.1000/x", "--repo", "spimat-framework")
+    result = synced.run("refs", "add", "10.1000/x", "--repo", "demo-framework")
 
     assert result.returncode == 1
-    assert "spimat-framework: FAILED: no Zotero configuration" in result.stdout
+    assert "demo-framework: FAILED: no Zotero configuration" in result.stdout
 
 
 def test_add_with_a_read_only_key_fails_with_a_clear_message(
@@ -533,7 +532,7 @@ def test_fetch_attaches_a_retrieved_pdf_to_its_item_when_asked(
     assert web.data(attachment)["filename"] == "raissi2019physics.pdf"
     assert web.files[attachment] == PDF
     assert (
-        "spimat-hub: papers/raissi2019physics.pdf retrieved, attached in Zotero"
+        "demo-hub: papers/raissi2019physics.pdf retrieved, attached in Zotero"
         in lines
     )
 
@@ -557,7 +556,7 @@ def test_a_full_zotero_storage_is_a_warning(synced: Workspace, web: Web) -> None
     assert ok, lines
     assert (synced.pool / "papers" / "raissi2019physics.pdf").read_bytes() == PDF
     assert (
-        "spimat-hub: WARNING: papers/raissi2019physics.pdf not attached in Zotero: "
+        "demo-hub: WARNING: papers/raissi2019physics.pdf not attached in Zotero: "
         "its file storage is full"
     ) in lines
     # The attachment made for it is not left empty in the library.

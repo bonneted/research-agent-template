@@ -1,12 +1,18 @@
-"""The workspace manifest: which repositories make up the workspace, and where to fetch them."""
+"""The workspace manifest: what the workspace is called, which repositories make it up,
+and where to fetch them.
+"""
 
-from dataclasses import dataclass
+import re
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import yaml
 
 FILENAME = "workspace.yaml"
-ROLES = ("library", "hub", "study", "app")
+ROLES = ("library", "hub", "study", "app", "off-limits")
+# A workspace name prefixes its repositories, its `ask-<name>` skill and its
+# environment variables (`<NAME>_RESOURCES`).
+NAME = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
 
 
 class ManifestError(Exception):
@@ -22,6 +28,71 @@ class Repository:
     role: str
     # The key of its Zotero collection, when it is not found by name (see `refs`).
     zotero_collection: str | None = None
+
+
+@dataclass(frozen=True)
+class Blocked:
+    """A regular expression an agent's tool call may not match, and what it guards."""
+
+    pattern: str
+    what: str
+
+
+@dataclass(frozen=True)
+class OffLimits:
+    """Material an agent never reads (see `offlimits`); empty when the workspace has none."""
+
+    # Globs: relative (`confidential/`, `**/resources/secret/`), `~/`-relative or absolute.
+    paths: tuple[str, ...] = ()
+    patterns: tuple[Blocked, ...] = ()
+    deny_connectors: tuple[str, ...] = ()
+    # A repository `ws sync` clones but never links, mounts or lists.
+    repo: str | None = None
+
+    def __bool__(self) -> bool:
+        return bool(self.paths or self.patterns or self.deny_connectors or self.repo)
+
+
+@dataclass(frozen=True)
+class Workspace:
+    """The workspace as its manifest describes it."""
+
+    name: str
+    repositories: list[Repository]
+    # The GitLab group the workspace's repositories live in, as a URL.
+    gitlab: str | None = None
+    # Each repository's Zotero collection is `<zotero_root>/<repository>`.
+    zotero_root: str = ""
+    # The library studies pin and runs stamp; None for a workspace without one.
+    library: str | None = None
+    # `module:function`, called by every run stamp for fields of its own.
+    stamp_extras: str | None = None
+    # The hub folder of rule packs, copied into each study at spawn.
+    rule_packs_dir: str = "rules"
+    off_limits: OffLimits = field(default_factory=OffLimits)
+
+    @property
+    def hub(self) -> Repository:
+        return next(
+            repository for repository in self.repositories if repository.role == "hub"
+        )
+
+    def repository(self, name: str) -> Repository | None:
+        return next(
+            (repository for repository in self.repositories if repository.name == name),
+            None,
+        )
+
+    def variable(self, suffix: str) -> str:
+        """The environment variable `<NAME>_<suffix>` of this workspace."""
+        return f"{self.name.upper().replace('-', '_')}_{suffix}"
+
+    def url(self, name: str) -> str:
+        """Where the repository `name` lives on GitLab: in the workspace's group, or else
+        beside the hub.
+        """
+        group = self.gitlab or self.hub.url.rsplit("/", 1)[0]
+        return f"{group.rstrip('/')}/{name}.git"
 
 
 def find_hub(start: Path) -> Path:
@@ -82,7 +153,7 @@ def add(hub: Path, repository: Repository) -> None:
         text + ("" if text.endswith("\n") else "\n") + entry, encoding="utf-8"
     )
     try:
-        added = repository in load(hub)
+        added = repository in load(hub).repositories
     except ManifestError:
         added = False
     if not added:
@@ -92,11 +163,104 @@ def add(hub: Path, repository: Repository) -> None:
         )
 
 
-def load(hub: Path) -> list[Repository]:
-    """The repositories listed in the hub's workspace manifest."""
+def _strings(path: Path, data: dict, key: str) -> tuple[str, ...]:
+    """The list of strings at `key` of the off-limits block; empty if absent."""
+    values = data.get(key) or []
+    if not isinstance(values, list) or not all(
+        isinstance(value, str) and value for value in values
+    ):
+        raise ManifestError(f"{path}: off_limits.{key} must be a list of strings")
+    return tuple(values)
+
+
+def _off_limits(path: Path, data: object) -> OffLimits:
+    if data is None:
+        return OffLimits()
+    if not isinstance(data, dict):
+        raise ManifestError(f"{path}: off_limits must be a mapping")
+    unknown = sorted(set(data) - {"paths", "patterns", "deny_connectors", "repo"})
+    if unknown:
+        raise ManifestError(f"{path}: off_limits has unknown keys: {', '.join(unknown)}")
+    patterns = []
+    for index, entry in enumerate(data.get("patterns") or []):
+        # A pattern is a regular expression, or one with what it guards.
+        if isinstance(entry, str):
+            entry = {"pattern": entry}
+        if not isinstance(entry, dict) or not isinstance(entry.get("pattern"), str):
+            raise ManifestError(
+                f"{path}: off_limits pattern {index} needs a regular expression"
+            )
+        try:
+            re.compile(entry["pattern"])
+        except re.error as error:
+            raise ManifestError(
+                f"{path}: off_limits pattern {entry['pattern']!r}: {error}"
+            ) from error
+        patterns.append(
+            Blocked(entry["pattern"], str(entry.get("what") or "off-limits material"))
+        )
+    repo = data.get("repo")
+    if repo is not None and not isinstance(repo, str):
+        raise ManifestError(f"{path}: off_limits.repo must be a repository name")
+    return OffLimits(
+        _strings(path, data, "paths"),
+        tuple(patterns),
+        _strings(path, data, "deny_connectors"),
+        repo,
+    )
+
+
+_KEYS = (
+    "name",
+    "gitlab",
+    "zotero_root",
+    "library",
+    "stamp_extras",
+    "rule_packs_dir",
+    "off_limits",
+)
+
+
+def _workspace(path: Path, data: object) -> dict:
+    """The keys of the manifest's `workspace` block, checked."""
+    if not isinstance(data, dict) or not isinstance(data.get("name"), str):
+        raise ManifestError(f"{path}: expected a 'workspace' block with a name")
+    if not NAME.fullmatch(data["name"]):
+        raise ManifestError(
+            f"{path}: workspace name {data['name']!r} is not lowercase letters and "
+            "digits joined by dashes"
+        )
+    if unknown := sorted(set(data) - set(_KEYS)):
+        raise ManifestError(f"{path}: workspace has unknown keys: {', '.join(unknown)}")
+    for key in _KEYS[1:-1]:
+        if data.get(key) is not None and not isinstance(data[key], str):
+            raise ManifestError(f"{path}: workspace.{key} must be text")
+    extras = data.get("stamp_extras") or None
+    if extras is not None and not re.fullmatch(r"[\w.]+:\w+", extras):
+        raise ManifestError(
+            f"{path}: workspace.stamp_extras {extras!r} is not `module:function`"
+        )
+    return {
+        "name": data["name"],
+        "gitlab": data.get("gitlab") or None,
+        "zotero_root": data.get("zotero_root") or data["name"],
+        "library": data.get("library") or None,
+        "stamp_extras": extras,
+        "rule_packs_dir": data.get("rule_packs_dir") or "rules",
+        "off_limits": _off_limits(path, data.get("off_limits")),
+    }
+
+
+def load(hub: Path) -> Workspace:
+    """The workspace described by the hub's manifest."""
     path = hub / FILENAME
     data = _read(hub)
-    entries = data.get("repositories") if isinstance(data, dict) else None
+    if not isinstance(data, dict):
+        raise ManifestError(
+            f"{path}: expected a 'workspace' block and a 'repositories' list"
+        )
+    settings = _workspace(path, data.get("workspace"))
+    entries = data.get("repositories")
     if not isinstance(entries, list):
         raise ManifestError(f"{path}: expected a 'repositories' list")
     repositories = []
@@ -130,4 +294,33 @@ def load(hub: Path) -> list[Repository]:
             f"{path}: the hub is the folder {hub.name!r}, but the manifest lists "
             f"{hubs or 'no hub'} as hub"
         )
-    return repositories
+
+    def named(role: str) -> list[str]:
+        return [
+            repository.name for repository in repositories if repository.role == role
+        ]
+
+    # The library and the off-limits repository are named in the workspace block; one
+    # not listed yet is a repository still to come.
+    libraries = named("library")
+    if len(libraries) > 1:
+        raise ManifestError(f"{path}: more than one library: {', '.join(libraries)}")
+    library = settings["library"] or (libraries[0] if libraries else None)
+    if libraries and libraries != [library]:
+        raise ManifestError(
+            f"{path}: workspace.library is {library}, but {libraries[0]} has role library"
+        )
+    if library in names and library not in libraries:
+        raise ManifestError(f"{path}: the library {library} must have role library")
+    settings["library"] = library
+    off_limits = settings["off_limits"]
+    for name in named("off-limits"):
+        if name != off_limits.repo:
+            raise ManifestError(
+                f"{path}: {name} has role off-limits but is not off_limits.repo"
+            )
+    if off_limits.repo in names and off_limits.repo not in named("off-limits"):
+        raise ManifestError(
+            f"{path}: the off-limits repository {off_limits.repo} must have role off-limits"
+        )
+    return Workspace(repositories=repositories, **settings)

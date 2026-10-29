@@ -15,7 +15,7 @@ def test_sync_clones_missing_repositories_as_siblings_of_the_hub(
     result = workspace.sync()
 
     assert result.returncode == 0, result.stdout + result.stderr
-    for name in ("spimat", "spimat-framework"):
+    for name in ("demo", "demo-framework"):
         assert (workspace.root / name / "README.md").read_text() == f"# {name}\n"
         assert f"{name}: cloned" in result.stdout
 
@@ -52,23 +52,23 @@ def test_second_sync_changes_nothing(workspace: Workspace) -> None:
 
 def test_dirty_repository_is_reported_and_sync_completes(workspace: Workspace) -> None:
     workspace.sync()
-    (workspace.root / "spimat" / "README.md").write_text("edited\n")
-    (workspace.root / "spimat" / "notes.txt").write_text("untracked\n")
+    (workspace.root / "demo" / "README.md").write_text("edited\n")
+    (workspace.root / "demo" / "notes.txt").write_text("untracked\n")
 
     result = workspace.sync()
 
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "spimat: dirty (2 uncommitted)" in result.stdout
-    assert (workspace.root / "spimat" / "README.md").read_text() == "edited\n"
+    assert "demo: dirty (2 uncommitted)" in result.stdout
+    assert (workspace.root / "demo" / "README.md").read_text() == "edited\n"
 
 
 def test_behind_repository_is_reported_and_left_where_it_is(
     workspace: Workspace,
 ) -> None:
     workspace.sync()
-    head = git("rev-parse", "HEAD", cwd=workspace.root / "spimat")
+    head = git("rev-parse", "HEAD", cwd=workspace.root / "demo")
     pusher = workspace.tmp / "pusher"
-    git("clone", "--quiet", workspace.urls["spimat"], str(pusher), cwd=workspace.tmp)
+    git("clone", "--quiet", workspace.urls["demo"], str(pusher), cwd=workspace.tmp)
     for message in ("First", "Second"):
         (pusher / f"{message}.md").write_text(message)
         git("add", ".", cwd=pusher)
@@ -78,18 +78,18 @@ def test_behind_repository_is_reported_and_left_where_it_is(
     result = workspace.sync()
 
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "spimat: behind (2 commits)" in result.stdout
-    assert git("rev-parse", "HEAD", cwd=workspace.root / "spimat") == head
+    assert "demo: behind (2 commits)" in result.stdout
+    assert git("rev-parse", "HEAD", cwd=workspace.root / "demo") == head
 
 
 def test_branch_without_upstream_is_reported(workspace: Workspace) -> None:
     workspace.sync()
-    git("checkout", "--quiet", "-b", "local-only", cwd=workspace.root / "spimat")
+    git("checkout", "--quiet", "-b", "local-only", cwd=workspace.root / "demo")
 
     result = workspace.sync()
 
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "spimat: no upstream to compare with" in result.stdout
+    assert "demo: no upstream to compare with" in result.stdout
 
 
 def test_hub_folder_named_differently_from_the_manifest_clones_nothing(
@@ -100,43 +100,43 @@ def test_hub_folder_named_differently_from_the_manifest_clones_nothing(
     result = workspace.sync()
 
     assert result.returncode != 0
-    assert "spimat-hub" in result.stderr
+    assert "demo-hub" in result.stderr
     assert sorted(path.name for path in workspace.root.iterdir()) == ["hub"]
 
 
 def test_failed_clone_exits_non_zero_with_the_reason(workspace: Workspace) -> None:
-    workspace.urls["spimat-framework"] = (workspace.remotes / "missing.git").as_uri()
+    workspace.urls["demo-framework"] = (workspace.remotes / "missing.git").as_uri()
     workspace.write_manifest()
 
     result = workspace.sync()
 
     assert result.returncode != 0
     line = next(
-        line for line in result.stdout.splitlines() if "spimat-framework" in line
+        line for line in result.stdout.splitlines() if "demo-framework" in line
     )
     assert "FAILED" in line and "missing.git" in line
-    assert "spimat: cloned" in result.stdout
-    assert not (workspace.root / "spimat-framework").exists()
+    assert "demo: cloned" in result.stdout
+    assert not (workspace.root / "demo-framework").exists()
 
 
 def test_folder_that_is_not_a_clone_exits_non_zero(workspace: Workspace) -> None:
-    (workspace.root / "spimat").mkdir()
+    (workspace.root / "demo").mkdir()
 
     result = workspace.sync()
 
     assert result.returncode != 0
-    assert "spimat: FAILED: exists but is not a git repository" in result.stdout
+    assert "demo: FAILED: exists but is not a git repository" in result.stdout
 
 
 def test_manifest_with_an_unknown_role_clones_nothing(workspace: Workspace) -> None:
-    workspace.roles["spimat-framework"] = "experiment"
+    workspace.roles["demo-framework"] = "experiment"
     workspace.write_manifest()
 
     result = workspace.sync()
 
     assert result.returncode != 0
-    assert "spimat-framework has role 'experiment'" in result.stderr
-    assert not (workspace.root / "spimat").exists()
+    assert "demo-framework has role 'experiment'" in result.stderr
+    assert not (workspace.root / "demo").exists()
 
 
 def test_sync_gives_the_library_its_private_context_in_ignored_local_files(
@@ -145,9 +145,9 @@ def test_sync_gives_the_library_its_private_context_in_ignored_local_files(
     result = workspace.sync()
 
     assert result.returncode == 0, result.stdout + result.stderr
-    library = workspace.root / "spimat"
+    library = workspace.root / "demo"
     local = (library / "CLAUDE.local.md").read_text()
-    assert "@../spimat-hub/docs/library/CLAUDE.md" in local.splitlines()
+    assert "@../demo-hub/docs/library/CLAUDE.md" in local.splitlines()
     assert git("status", "--porcelain", cwd=library) == ""
 
 
@@ -155,7 +155,7 @@ def test_local_agent_file_written_by_hand_is_kept_and_reported(
     workspace: Workspace,
 ) -> None:
     workspace.sync()
-    own = workspace.root / "spimat" / "CLAUDE.local.md"
+    own = workspace.root / "demo" / "CLAUDE.local.md"
     own.write_text("My own notes\n")
 
     result = workspace.sync()
@@ -163,7 +163,7 @@ def test_local_agent_file_written_by_hand_is_kept_and_reported(
     assert result.returncode == 0, result.stdout + result.stderr
     assert own.read_text() == "My own notes\n"
     line = next(
-        line for line in result.stdout.splitlines() if line.startswith("spimat:")
+        line for line in result.stdout.splitlines() if line.startswith("demo:")
     )
     assert "CLAUDE.local.md not written by ws, left as is" in line
 
@@ -174,17 +174,17 @@ def test_library_without_agent_guidance_gets_an_ignored_pointer_to_the_hub(
     result = workspace.sync()
 
     assert result.returncode == 0, result.stdout + result.stderr
-    library = workspace.root / "spimat"
-    assert "../spimat-hub/docs/library/" in (library / "AGENTS.md").read_text()
+    library = workspace.root / "demo"
+    assert "../demo-hub/docs/library/" in (library / "AGENTS.md").read_text()
     assert git("status", "--porcelain", cwd=library) == ""
 
 
 def test_agent_guidance_the_library_commits_is_left_alone(
     workspace: Workspace,
 ) -> None:
-    workspace.urls["spimat"] = make_remote(
+    workspace.urls["demo"] = make_remote(
         workspace.remotes / "committed",
-        "spimat",
+        "demo",
         {"AGENTS.md": "# Committed guidance\n"},
     )
     workspace.write_manifest()
@@ -192,7 +192,7 @@ def test_agent_guidance_the_library_commits_is_left_alone(
     result = workspace.sync()
 
     assert result.returncode == 0, result.stdout + result.stderr
-    library = workspace.root / "spimat"
+    library = workspace.root / "demo"
     assert (library / "AGENTS.md").read_text() == "# Committed guidance\n"
     assert "AGENTS.md" not in result.stdout
     assert (library / "CLAUDE.local.md").exists()
@@ -203,7 +203,7 @@ def test_stale_local_agent_file_written_by_ws_is_rewritten(
     workspace: Workspace,
 ) -> None:
     workspace.sync()
-    local = workspace.root / "spimat" / "CLAUDE.local.md"
+    local = workspace.root / "demo" / "CLAUDE.local.md"
     current = local.read_text()
     local.write_text(current.splitlines()[0] + "\n\n@../elsewhere/CLAUDE.md\n")
 
@@ -231,7 +231,7 @@ def test_pool_location_comes_from_the_environment(
     workspace: Workspace, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     elsewhere = workspace.tmp / "other-drive" / "pool"
-    monkeypatch.setenv("SPIMAT_RESOURCES", str(elsewhere))
+    monkeypatch.setenv("DEMO_RESOURCES", str(elsewhere))
 
     result = workspace.sync()
 
@@ -245,20 +245,20 @@ def test_moved_pool_is_relinked(
 ) -> None:
     workspace.sync()
     elsewhere = workspace.tmp / "other-drive" / "pool"
-    monkeypatch.setenv("SPIMAT_RESOURCES", str(elsewhere))
+    monkeypatch.setenv("DEMO_RESOURCES", str(elsewhere))
 
     result = workspace.sync()
 
     assert result.returncode == 0, result.stdout + result.stderr
     assert (workspace.hub / "resources").resolve() == elsewhere
-    assert f"spimat: resources relinked to {elsewhere}" in result.stdout
+    assert f"demo: resources relinked to {elsewhere}" in result.stdout
 
 
 def test_resources_folder_in_the_way_is_kept_and_reported(
     workspace: Workspace,
 ) -> None:
     workspace.sync()
-    study = workspace.root / "spimat-framework"
+    study = workspace.root / "demo-framework"
     (study / "resources").unlink()
     (study / "resources" / "papers").mkdir(parents=True)
     (study / "resources" / "papers" / "key.pdf").write_text("pdf")
@@ -270,7 +270,7 @@ def test_resources_folder_in_the_way_is_kept_and_reported(
     line = next(
         line
         for line in result.stdout.splitlines()
-        if line.startswith("spimat-framework:")
+        if line.startswith("demo-framework:")
     )
     assert "resources/ is a folder, not a link to the pool" in line
 
@@ -279,7 +279,7 @@ def test_link_that_cannot_be_written_fails_that_repository_only(
     workspace: Workspace,
 ) -> None:
     workspace.sync()
-    study = workspace.root / "spimat-framework"
+    study = workspace.root / "demo-framework"
     (study / "resources").unlink()
     study.chmod(0o555)
     try:
@@ -288,7 +288,7 @@ def test_link_that_cannot_be_written_fails_that_repository_only(
         study.chmod(0o755)
 
     assert result.returncode != 0
-    assert "spimat-framework: FAILED: could not link resources" in result.stdout
+    assert "demo-framework: FAILED: could not link resources" in result.stdout
     assert (workspace.hub / "resources").resolve() == workspace.pool.resolve()
 
 
@@ -298,32 +298,32 @@ def test_sync_mounts_each_study_s_notes_in_the_hub_out_of_git(
     result = workspace.sync()
 
     assert result.returncode == 0, result.stdout + result.stderr
-    mount = workspace.hub / "docs" / "studies" / "spimat-framework"
+    mount = workspace.hub / "docs" / "studies" / "demo-framework"
     assert (mount / "wiki" / "index.md").read_text() == "# Wiki\n"
-    assert not (workspace.hub / "docs" / "studies" / "spimat").exists()
+    assert not (workspace.hub / "docs" / "studies" / "demo").exists()
     assert "docs" not in git("status", "--porcelain", cwd=workspace.hub)
 
 
 def test_study_without_notes_is_reported_and_not_mounted(
     workspace: Workspace,
 ) -> None:
-    workspace.urls["spimat-framework"] = make_remote(
-        workspace.remotes / "bare", "spimat-framework"
+    workspace.urls["demo-framework"] = make_remote(
+        workspace.remotes / "bare", "demo-framework"
     )
     workspace.write_manifest()
 
     result = workspace.sync()
 
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "spimat-framework: cloned, no docs/ to mount" in result.stdout
-    mount = workspace.hub / "docs" / "studies" / "spimat-framework"
+    assert "demo-framework: cloned, no docs/ to mount" in result.stdout
+    mount = workspace.hub / "docs" / "studies" / "demo-framework"
     assert not mount.exists() and not mount.is_symlink()
 
 
 def test_folder_in_the_mount_s_place_is_kept_and_reported(
     workspace: Workspace,
 ) -> None:
-    mount = workspace.hub / "docs" / "studies" / "spimat-framework"
+    mount = workspace.hub / "docs" / "studies" / "demo-framework"
     mount.mkdir()
     (mount / "note.md").write_text("mine\n")
 
@@ -332,7 +332,7 @@ def test_folder_in_the_mount_s_place_is_kept_and_reported(
     assert result.returncode == 0, result.stdout + result.stderr
     assert (mount / "note.md").read_text() == "mine\n"
     assert (
-        "spimat-framework: cloned, docs/studies/spimat-framework is not a mount, left as is"
+        "demo-framework: cloned, docs/studies/demo-framework is not a mount, left as is"
         in result.stdout
     )
 
@@ -340,52 +340,52 @@ def test_folder_in_the_mount_s_place_is_kept_and_reported(
 def test_study_missing_from_the_hub_s_study_index_is_reported(
     workspace: Workspace,
 ) -> None:
-    workspace.roles["spimat-mt2"] = "study"
-    workspace.urls["spimat-mt2"] = make_remote(workspace.remotes, "spimat-mt2")
+    workspace.roles["demo-mt2"] = "study"
+    workspace.urls["demo-mt2"] = make_remote(workspace.remotes, "demo-mt2")
     workspace.write_manifest()
 
     result = workspace.sync()
 
     assert result.returncode == 0, result.stdout + result.stderr
-    hub = next(l for l in result.stdout.splitlines() if l.startswith("spimat-hub:"))
-    assert "spimat-mt2 missing from docs/studies/index.md" in hub
-    assert "spimat-framework missing" not in hub
+    hub = next(l for l in result.stdout.splitlines() if l.startswith("demo-hub:"))
+    assert "demo-mt2 missing from docs/studies/index.md" in hub
+    assert "demo-framework missing" not in hub
 
 
 def test_study_named_only_in_prose_counts_as_missing_from_the_index(
     workspace: Workspace,
 ) -> None:
     (workspace.hub / "docs" / "studies" / "index.md").write_text(
-        "- **other**: soon renamed spimat-framework\n"
+        "- **other**: soon renamed demo-framework\n"
     )
 
     result = workspace.sync()
 
-    assert "spimat-framework missing from docs/studies/index.md" in result.stdout
+    assert "demo-framework missing from docs/studies/index.md" in result.stdout
 
 
 def test_app_gets_the_pool_and_the_skills_but_no_mount_and_no_index_line(
     workspace: Workspace,
 ) -> None:
-    workspace.roles["spimat-gui"] = "app"
-    workspace.urls["spimat-gui"] = make_remote(
-        workspace.remotes, "spimat-gui", {"docs/CONTEXT.md": "# GUI\n"}
+    workspace.roles["demo-gui"] = "app"
+    workspace.urls["demo-gui"] = make_remote(
+        workspace.remotes, "demo-gui", {"docs/CONTEXT.md": "# GUI\n"}
     )
     workspace.write_manifest()
 
     result = workspace.sync()
 
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "spimat-gui: cloned" in result.stdout
-    assert "spimat-gui missing" not in result.stdout
-    app = workspace.root / "spimat-gui"
+    assert "demo-gui: cloned" in result.stdout
+    assert "demo-gui missing" not in result.stdout
+    app = workspace.root / "demo-gui"
     assert (app / "resources").resolve() == workspace.pool.resolve()
     assert (app / ".claude" / "skills" / "publish-finding" / "SKILL.md").is_file()
-    mount = workspace.hub / "docs" / "studies" / "spimat-gui"
+    mount = workspace.hub / "docs" / "studies" / "demo-gui"
     assert not mount.exists() and not mount.is_symlink()
 
 
-@pytest.mark.parametrize("name", ["spimat", "spimat-hub", "spimat-framework"])
+@pytest.mark.parametrize("name", ["demo", "demo-hub", "demo-framework"])
 def test_sync_links_hub_skills_into_every_repository_out_of_git(
     workspace: Workspace, name: str
 ) -> None:
@@ -402,9 +402,9 @@ def test_sync_links_hub_skills_into_every_repository_out_of_git(
 def test_study_skill_in_the_way_of_a_hub_skill_is_kept_and_reported(
     workspace: Workspace,
 ) -> None:
-    workspace.urls["spimat-framework"] = make_remote(
+    workspace.urls["demo-framework"] = make_remote(
         workspace.remotes / "own-skill",
-        "spimat-framework",
+        "demo-framework",
         {".agents/skills/publish-finding/SKILL.md": "# Own\n"},
     )
     workspace.write_manifest()
@@ -412,10 +412,10 @@ def test_study_skill_in_the_way_of_a_hub_skill_is_kept_and_reported(
     result = workspace.sync()
 
     assert result.returncode == 0, result.stdout + result.stderr
-    study = workspace.root / "spimat-framework"
+    study = workspace.root / "demo-framework"
     assert (study / ".agents/skills/publish-finding/SKILL.md").read_text() == "# Own\n"
     assert (
-        "spimat-framework: cloned, no docs/ to mount, "
+        "demo-framework: cloned, no docs/ to mount, "
         ".agents/skills/publish-finding is not the hub's skill, left as is"
         in result.stdout
     )
@@ -425,7 +425,7 @@ def test_claude_skills_folder_that_is_not_a_link_is_reported(
     workspace: Workspace,
 ) -> None:
     workspace.sync()
-    study = workspace.root / "spimat-framework"
+    study = workspace.root / "demo-framework"
     (study / ".claude" / "skills").unlink()
     (study / ".claude" / "skills" / "copied").mkdir(parents=True)
 
@@ -435,7 +435,7 @@ def test_claude_skills_folder_that_is_not_a_link_is_reported(
     line = next(
         line
         for line in result.stdout.splitlines()
-        if line.startswith("spimat-framework:")
+        if line.startswith("demo-framework:")
     )
     assert ".claude/skills is not a link to .agents/skills" in line
     assert (study / ".claude" / "skills" / "copied").is_dir()

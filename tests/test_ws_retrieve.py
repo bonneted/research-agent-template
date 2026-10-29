@@ -9,7 +9,6 @@ from pathlib import Path
 
 import pytest
 from conftest import Workspace
-
 from ws import manifest, retrieve
 from ws.fetch import fetch
 
@@ -103,13 +102,13 @@ def test_document_already_in_the_pool_is_not_asked_for(synced: Workspace) -> Non
 
 
 def test_document_listed_twice_is_asked_for_once(synced: Workspace) -> None:
-    (synced.root / "spimat-framework" / "references.bib").write_text(BIBLIOGRAPHY)
+    (synced.root / "demo-framework" / "references.bib").write_text(BIBLIOGRAPHY)
     source = Fake("a")
 
     lines, _ = run(synced, [source])
 
     assert source.asked.count("raissi2019") == 1
-    assert "spimat-framework: 3 missing" in lines
+    assert "demo-framework: 3 missing" in lines
 
 
 def test_bibliography_identifiers_are_read() -> None:
@@ -142,7 +141,7 @@ class Network:
 
 
 def write_config(tmp_path: Path, text: str) -> None:
-    config = Path(os.environ["XDG_CONFIG_HOME"]) / "spimat"
+    config = Path(os.environ["XDG_CONFIG_HOME"]) / "research-ws"
     config.mkdir(parents=True)
     (config / "retrieval.yaml").write_text(text)
 

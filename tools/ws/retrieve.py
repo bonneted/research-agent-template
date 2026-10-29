@@ -4,14 +4,18 @@ Each source answers one question: given a bibliography entry, here are its PDF's
 or None. The sources are tried in order: a local folder of PDFs named by citekey (such
 as the one ZotMoov keeps in sync), then the Zotero Web API, when the user configured
 them, then arXiv, then Unpaywall by DOI. Their configuration is the user's
-`$XDG_CONFIG_HOME/spimat/retrieval.yaml` (by default `~/.config/spimat/`), never in git:
+`$XDG_CONFIG_HOME/research-ws/retrieval.yaml` (by default `~/.config/research-ws/`),
+never in git. Its top-level keys serve every workspace; a workspace's section under
+`workspaces` adds to them or overrides them:
 
     pdf_folder: /mnt/c/Users/me/OneDrive/Zotero   # holds <citekey>.pdf
-    zotero:
-      library: users/1234567     # or groups/<id>
-      api_key: <a key with write access to the library and its files>
     email: you@example.org       # Unpaywall asks for one; without it, it is skipped
-    upload_pdfs: true            # attach PDFs found elsewhere in Zotero (see `zotero`)
+    workspaces:
+      copv:
+        zotero:
+          library: groups/1234567    # or users/<id>
+          api_key: <a key with write access to the library and its files>
+        upload_pdfs: true        # attach PDFs found elsewhere in Zotero (see `zotero`)
 """
 
 import json
@@ -29,7 +33,9 @@ import yaml
 
 from ws import resources
 
-CONFIG = Path("spimat") / "retrieval.yaml"
+CONFIG = Path("research-ws") / "retrieval.yaml"
+# The section of the configuration holding each workspace's own keys.
+WORKSPACES = "workspaces"
 
 # Fetches a URL with the given headers; returns the body, or raises `OSError`.
 Get = Callable[[str, dict[str, str]], bytes]
@@ -84,9 +90,7 @@ def entries(text: str) -> dict[str, Entry]:
         arxiv = None
         if fields.get("archiveprefix", "").lower() == "arxiv" and fields.get("eprint"):
             arxiv = fields["eprint"]
-        elif match := _ARXIV_DOI.fullmatch(fields.get("doi", "")):
-            arxiv = match.group(1)
-        elif match := _ARXIV_URL.search(fields.get("url", "")):
+        elif (match := _ARXIV_DOI.fullmatch(fields.get("doi", ""))) or (match := _ARXIV_URL.search(fields.get("url", ""))):
             arxiv = match.group(1)
         found[key] = Entry(key, fields.get("doi") or None, arxiv)
     return found
@@ -98,7 +102,7 @@ def _is_pdf(body: bytes) -> bool:
 
 def _get(url: str, headers: dict[str, str]) -> bytes:
     request = urllib.request.Request(
-        url, headers={"User-Agent": "spimat-ws (ws fetch)", **headers}
+        url, headers={"User-Agent": "research-ws (ws fetch)", **headers}
     )
     with urllib.request.urlopen(request, timeout=30) as response:
         return response.read()
@@ -232,8 +236,8 @@ class Unpaywall:
         return None
 
 
-def settings() -> tuple[dict, list[str], Path]:
-    """The user's configuration, what is wrong with it, and its path."""
+def settings(workspace: str | None = None) -> tuple[dict, list[str], Path]:
+    """The user's configuration for `workspace`, what is wrong with it, and its path."""
     home = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
     path = home / CONFIG
     config: dict = {}
@@ -246,12 +250,24 @@ def settings() -> tuple[dict, list[str], Path]:
         if not isinstance(config, dict):
             problems.append(f"{path}: expected a mapping")
             config = {}
-    return config, problems, path
+    sections = config.pop(WORKSPACES, None) or {}
+    if not isinstance(sections, dict):
+        problems.append(f"{path}: expected '{WORKSPACES}' to map names to settings")
+        sections = {}
+    own = sections.get(workspace) if workspace else None
+    if own is not None and not isinstance(own, dict):
+        problems.append(f"{path}: expected '{WORKSPACES}.{workspace}' to be a mapping")
+        own = None
+    return {**config, **(own or {})}, problems, path
 
 
-def configured(get: Get = _get) -> tuple[list[Retriever], list[str]]:
-    """The sources the user's configuration allows, in order; and what is wrong with it."""
-    config, problems, path = settings()
+def configured(
+    get: Get = _get, workspace: str | None = None
+) -> tuple[list[Retriever], list[str]]:
+    """The sources the user's configuration for `workspace` allows, in order; and what
+    is wrong with it.
+    """
+    config, problems, path = settings(workspace)
     sources: list[Retriever] = []
     folder = config.get("pdf_folder")
     if folder is not None:

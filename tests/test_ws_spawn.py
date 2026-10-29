@@ -12,18 +12,18 @@ import tomllib
 from pathlib import Path
 
 import pytest
+import ws
 import yaml
 from conftest import Workspace, git
 from fakes import Web
-
 from ws.spawn import spawn
 
-STUDY = "spimat-mt2"
+STUDY = "demo-mt2"
 
 
 @pytest.fixture
 def spawned(workspace: Workspace) -> Path:
-    """The workspace, synced, with the study `spimat-mt2` spawned in it."""
+    """The workspace, synced, with the study `demo-mt2` spawned in it."""
     workspace.sync()
     result = workspace.spawn("mt2")
     assert result.returncode == 0, result.stdout + result.stderr
@@ -52,10 +52,11 @@ def test_spawned_study_carries_the_default_study_rules_and_the_hub_pointer(
     workspace: Workspace, spawned: Path
 ) -> None:
     guidance = (spawned / "AGENTS.md").read_text()
-    assert "1. Each phase declares **explore** or **confirm**." in guidance
-    assert "11. Kept from the current study:" in guidance
+    assert "1. Each phase is **explore** or **confirm**." in guidance
+    assert "10. **Units**" in guidance
     assert "prior-work check" in guidance.lower()
-    assert f"git clone {workspace.urls['spimat-hub']} ../spimat-hub" in guidance
+    assert "ask-demo" in guidance
+    assert f"git clone {workspace.urls['demo-hub']} ../demo-hub" in guidance
 
 
 def test_spawned_study_says_study_where_the_template_says_project(
@@ -71,6 +72,18 @@ def test_spawned_study_says_study_where_the_template_says_project(
     assert zotero == 'API = "https://api.example.org/projects/"\n'
 
 
+def test_spawned_study_has_the_rule_packs_and_the_protocol_freeze(
+    workspace: Workspace, spawned: Path
+) -> None:
+    for pack in ("ml-training", "fe-simulation", "uq-reliability", "literature-check"):
+        assert (spawned / "rules" / f"{pack}.md").read_text() == (
+            workspace.hub / "rules" / f"{pack}.md"
+        ).read_text()
+    assert "## Rule packs" in (spawned / "PLAN.md").read_text()
+    freeze = (spawned / "study/protocol.py").read_text()
+    assert freeze == (Path(ws.__file__).parent / "protocol.py").read_text()
+
+
 def test_spawned_study_leaves_fetching_to_the_hub(
     workspace: Workspace, spawned: Path
 ) -> None:
@@ -79,10 +92,16 @@ def test_spawned_study_leaves_fetching_to_the_hub(
         "tests/test_fetch.py",
         "tests/test_retrieve.py",
         "tests/conftest.py",
+        "tests/test_refs.py",
+        "uv.lock",
     ):
         assert not (spawned / path).exists(), path
     skill = (spawned / ".agents/skills/digest-source/SKILL.md").read_text()
     assert "Missing: run `uv run ws fetch` in the hub.\n" in skill
+    assert (
+        f"`uv run --directory ../demo-hub ws refs add --repo {STUDY} <DOI>`, then "
+        f"`uv run --directory ../demo-hub ws refs pull --repo {STUDY}`."
+    ) in skill
     for name in (
         "resources.yaml",
         "references.bib",
@@ -104,21 +123,51 @@ def test_spawned_study_is_one_clean_commit_on_the_template_kept_as_remote(
     template_head = git("rev-parse", "template/main", cwd=spawned)
     assert git("rev-parse", "HEAD~1", cwd=spawned) == template_head
     origin = git("remote", "get-url", "origin", cwd=spawned)
-    assert origin == workspace.urls["spimat-hub"].replace("spimat-hub", STUDY)
+    assert origin == workspace.urls["demo-hub"].replace("demo-hub", STUDY)
 
 
 def test_spawned_study_pins_the_library_at_its_default_branch_commit(
     workspace: Workspace, spawned: Path
 ) -> None:
-    library_head = git("ls-remote", workspace.urls["spimat"], "HEAD", cwd=spawned)
+    library_head = git("ls-remote", workspace.urls["demo"], "HEAD", cwd=spawned)
     pyproject = tomllib.loads((spawned / "pyproject.toml").read_text())
 
     assert pyproject["project"]["name"] == STUDY
-    assert "spimat" in pyproject["project"]["dependencies"]
-    assert pyproject["tool"]["uv"]["sources"]["spimat"] == {
-        "git": workspace.urls["spimat"],
+    assert "demo" in pyproject["project"]["dependencies"]
+    assert pyproject["tool"]["uv"]["sources"]["demo"] == {
+        "git": workspace.urls["demo"],
         "rev": library_head.split()[0],
     }
+    assert 'LIBRARY = "demo"' in (spawned / "study/stamp.py").read_text()
+
+
+def test_a_workspace_without_a_library_spawns_studies_with_no_pin(
+    workspace: Workspace,
+) -> None:
+    del workspace.roles["demo"]
+    workspace.write_manifest()
+
+    result = workspace.spawn("mt2")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "no library to pin" in result.stdout
+    pyproject = tomllib.loads((workspace.root / STUDY / "pyproject.toml").read_text())
+    assert pyproject["project"]["dependencies"] == ["pyyaml"]
+    assert "uv" not in pyproject["tool"]
+
+
+def test_a_library_named_but_not_listed_yet_refuses_to_spawn(
+    workspace: Workspace,
+) -> None:
+    del workspace.roles["demo"]
+    workspace.settings["library"] = "demo"
+    workspace.write_manifest()
+
+    result = workspace.spawn("mt2")
+
+    assert result.returncode != 0
+    assert "the library demo is not in workspace.yaml yet" in result.stderr
+    assert not (workspace.root / STUDY).exists()
 
 
 def test_spawned_study_is_registered_in_the_manifest_and_the_study_index(
@@ -144,7 +193,7 @@ def test_spawn_syncs_the_workspace(workspace: Workspace) -> None:
     result = workspace.spawn("mt2")
 
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "spimat-framework: cloned" in result.stdout
+    assert "demo-framework: cloned" in result.stdout
     mount = workspace.hub / "docs/studies" / STUDY
     assert (mount / "wiki/index.md").is_file()
 
@@ -181,7 +230,7 @@ def test_run_folder_is_outside_git_and_configurable(
     (spawned / "runs" / "01-screen").mkdir(parents=True)
     assert git("status", "--porcelain", cwd=spawned) == ""
     elsewhere = workspace.tmp / "other-drive"
-    assert runs({"SPIMAT_MT2_RUNS": str(elsewhere)}) == elsewhere
+    assert runs({"DEMO_MT2_RUNS": str(elsewhere)}) == elsewhere
 
 
 def test_spawn_copies_only_the_overlay_files_git_tracks(
@@ -210,9 +259,9 @@ def test_spawning_a_study_already_in_the_workspace_changes_nothing(
     result = workspace.spawn("framework")
 
     assert result.returncode != 0
-    assert "spimat-framework is already in workspace.yaml" in result.stderr
+    assert "demo-framework is already in workspace.yaml" in result.stderr
     assert (workspace.hub / "workspace.yaml").read_text() == manifest
-    assert not (workspace.root / "spimat-framework").exists()
+    assert not (workspace.root / "demo-framework").exists()
 
 
 def test_spawning_over_an_existing_folder_changes_nothing(
@@ -234,7 +283,7 @@ def test_topic_that_is_not_a_slug_is_refused(workspace: Workspace) -> None:
 
     assert result.returncode != 0
     assert "lowercase" in result.stderr
-    assert sorted(path.name for path in workspace.root.iterdir()) == ["spimat-hub"]
+    assert sorted(path.name for path in workspace.root.iterdir()) == ["demo-hub"]
 
 
 def test_unreachable_template_leaves_no_study_behind(workspace: Workspace) -> None:
@@ -251,9 +300,10 @@ def test_unreachable_template_leaves_no_study_behind(workspace: Workspace) -> No
 
 
 def test_spawned_study_passes_its_own_tests(spawned: Path) -> None:
-    # The overlay's run-stamp tests stand a fake spimat in for the library.
+    # The overlay's run-stamp tests stand a fake library in for the library.
     result = subprocess.run(
         [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", "tests"],
+        check=False,
         cwd=spawned,
         capture_output=True,
         text=True,
@@ -264,7 +314,7 @@ def test_spawned_study_passes_its_own_tests(spawned: Path) -> None:
 
 def test_spawn_creates_the_study_collection_in_zotero(workspace: Workspace) -> None:
     web = Web()
-    spimat = web.collection("spimat")
+    zotero_root = web.collection("demo")
 
     lines, ok = spawn(workspace.hub, "mt2", web.library())
 
@@ -274,16 +324,16 @@ def test_spawn_creates_the_study_collection_in_zotero(workspace: Workspace) -> N
         for collection in web.collections.values()
         if collection["data"]["name"] == STUDY
     ]
-    assert created["parentCollection"] == spimat
-    assert f"{STUDY}: Zotero collection spimat/{STUDY} created" in lines
+    assert created["parentCollection"] == zotero_root
+    assert f"{STUDY}: Zotero collection demo/{STUDY} created" in lines
 
 
-def test_spawn_creates_the_spimat_collection_if_needed(workspace: Workspace) -> None:
+def test_spawn_creates_the_workspace_collection_if_needed(workspace: Workspace) -> None:
     web = Web()
 
     spawn(workspace.hub, "mt2", web.library())
 
-    assert web.library().collection(["spimat", STUDY]) is not None
+    assert web.library().collection(["demo", STUDY]) is not None
 
 
 @pytest.mark.parametrize("writable", [False, None])
@@ -299,6 +349,6 @@ def test_spawn_leaves_the_collection_to_the_researcher_when_it_cannot(
     assert ok, lines
     assert web.collections == {}
     assert any(
-        line.startswith(f"{STUDY}: create the Zotero collection spimat/{STUDY}")
+        line.startswith(f"{STUDY}: create the Zotero collection demo/{STUDY}")
         for line in lines
     ), lines

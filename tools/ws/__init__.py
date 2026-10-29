@@ -1,1 +1,1 @@
-"""ws: build and check the spimat workspace from its manifest."""
+"""ws: build and check a research workspace from its manifest."""

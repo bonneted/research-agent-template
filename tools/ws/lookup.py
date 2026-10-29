@@ -9,8 +9,8 @@ import html
 import json
 import re
 import urllib.parse
-from xml.etree import ElementTree
 from dataclasses import dataclass
+from xml.etree import ElementTree
 
 from ws import zotero
 

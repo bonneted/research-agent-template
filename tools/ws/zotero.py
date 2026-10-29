@@ -22,10 +22,11 @@ API = "https://api.zotero.org"
 # Objects per page; the most the Web API returns at once.
 _PAGE = 100
 # Title words a citekey skips, as Better BibTeX does.
-_SKIPPED = set(
-    "a an the and or but nor of on in at to for from by with as about into over is are"
-    " de la le les des du der die das und von".split()
-)
+_SKIPPED = {
+    "a", "an", "the", "and", "or", "but", "nor", "of", "on", "in", "at", "to", "for",
+    "from", "by", "with", "as", "about", "into", "over", "is", "are", "de", "la", "le",
+    "les", "des", "du", "der", "die", "das", "und", "von",
+}
 
 
 @dataclass(frozen=True)
@@ -50,7 +51,7 @@ def send(
         url,
         data=body,
         method=method,
-        headers={"User-Agent": "spimat-ws", **headers},
+        headers={"User-Agent": "research-ws", **headers},
     )
     try:
         with urllib.request.urlopen(request, timeout=30) as response:
@@ -350,9 +351,13 @@ class Library:
         )
 
 
-def configured(send: Send = send) -> tuple[Library | None, str]:
-    """The library of the user's configuration; or None, and why there is none."""
-    config, problems, path = retrieve.settings()
+def configured(
+    send: Send = send, workspace: str | None = None
+) -> tuple[Library | None, str]:
+    """The library of the user's configuration for `workspace`; or None, and why there
+    is none.
+    """
+    config, problems, path = retrieve.settings(workspace)
     if problems:
         return None, "; ".join(problems)
     settings = config.get("zotero")

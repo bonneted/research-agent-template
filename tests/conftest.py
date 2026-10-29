@@ -10,6 +10,7 @@ import sys
 from pathlib import Path
 
 import pytest
+import yaml
 
 HUB = Path(__file__).resolve().parents[1]
 
@@ -26,6 +27,7 @@ TEMPLATE = {
     "docs/wiki/reading-list.md": "Needed by the project, for Project work and projects.\n",
     ".agents/skills/digest-source/SKILL.md": (
         "Judge it against the project line. Missing: run `uv run fetch`.\n"
+        "Add it with `uv run refs add <DOI>`, then `uv run refs pull`.\n"
     ),
     "src/research_project/__init__.py": "",
     "tools/zotero.py": 'API = "https://api.example.org/projects/"\n',
@@ -37,24 +39,30 @@ TEMPLATE = {
     "tests/conftest.py": "from pathlib import Path\n",
     "tests/test_fetch.py": "from fetch.cli import main\n\n\ndef test_main():\n    main()\n",
     "tests/test_retrieve.py": "from fetch import retrieve  # noqa: F401\n",
+    "tests/test_refs.py": "from fetch import refs  # noqa: F401\n",
+    "uv.lock": "version = 1\n",
 }
 
 
 def hub_files() -> dict[str, str]:
-    """The hub's overlay, as tracked in this repository, a hub skill, and the hub's ignores."""
-    overlay = HUB / "overlay"
-    tracked = git("ls-files", "-z", "--", str(overlay), cwd=HUB).split("\0")
+    """The hub's overlay, rule packs and off-limits hook as tracked in this repository, a
+    hub skill, the library's private context, and the hub's ignores.
+    """
+    tracked = git(
+        "ls-files", "-z", "--", "overlay", "rules", "tools/ws/guard_off_limits.py", cwd=HUB
+    ).split("\0")
     files = {name: (HUB / name).read_text() for name in filter(None, tracked)}
     files[".gitignore"] = "__pycache__/\n"
     files["skills/publish-finding/SKILL.md"] = "# Publish a finding\n"
-    files["docs/studies/index.md"] = "- **spimat-framework**: framework\n"
+    files["docs/studies/index.md"] = "- **demo-framework**: framework\n"
+    files["docs/library/CLAUDE.md"] = "# The library's private context\n"
     return files
 
 
 @pytest.fixture(autouse=True)
 def isolated_git(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """Keep the user's git configuration and pool out of the tests."""
-    monkeypatch.delenv("SPIMAT_RESOURCES", raising=False)
+    monkeypatch.delenv("DEMO_RESOURCES", raising=False)
     # No retrieval configuration of the user's: no Zotero, and no email for Unpaywall.
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
     monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(tmp_path / "gitconfig"))
@@ -96,26 +104,32 @@ class Workspace:
         self.root = tmp / "ws"
         self.root.mkdir()
         self.roles = {
-            "spimat": "library",
-            "spimat-hub": "hub",
-            "spimat-framework": "study",
+            "demo": "library",
+            "demo-hub": "hub",
+            "demo-framework": "study",
         }
         # The hub indexes its study, and the study has notes to mount.
         seeds = {
-            "spimat-hub": hub_files(),
-            "spimat-framework": {"docs/wiki/index.md": "# Wiki\n"},
+            "demo-hub": hub_files(),
+            "demo-framework": {"docs/wiki/index.md": "# Wiki\n"},
         }
         self.urls = {
             name: make_remote(self.remotes, name, seeds.get(name))
             for name in self.roles
         }
         self.template = make_remote(self.remotes, "template", TEMPLATE)
-        self.hub = self.root / "spimat-hub"
-        git("clone", "--quiet", self.urls["spimat-hub"], str(self.hub), cwd=self.root)
+        # The manifest's `workspace` block; a test adds keys such as `off_limits`.
+        self.settings: dict = {"name": "demo"}
+        self.hub = self.root / "demo-hub"
+        git("clone", "--quiet", self.urls["demo-hub"], str(self.hub), cwd=self.root)
         self.write_manifest()
 
     def write_manifest(self) -> None:
-        lines = [f"template: {self.template}", "repositories:"]
+        lines = [
+            yaml.safe_dump({"workspace": self.settings}, sort_keys=False).rstrip(),
+            f"template: {self.template}",
+            "repositories:",
+        ]
         for name, role in self.roles.items():
             lines += [
                 f"  - name: {name}",
@@ -126,7 +140,7 @@ class Workspace:
 
     @property
     def pool(self) -> Path:
-        """Where the pool is when `SPIMAT_RESOURCES` is not set."""
+        """Where the pool is when `DEMO_RESOURCES` is not set."""
         return self.root / "resources"
 
     def sync(self) -> subprocess.CompletedProcess[str]:
