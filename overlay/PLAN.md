@@ -30,8 +30,8 @@ Fixed before a confirm phase's first run, then frozen (`uv run python -m study.p
 
 ## Phases
 
-| Phase | Type | Question | Status |
-|---|---|---|---|
+| Phase | Type | Level | Budget | Question | Status |
+|---|---|---|---|---|---|
 
 ## Canary runs
 

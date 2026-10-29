@@ -26,9 +26,9 @@
 ## A phase
 
 1. **Prior-work check.** Before planning a phase, search the hub for what is already known, in its findings and every mounted study: `grep -Rli "<terms>" ../{{hub}}/docs/findings ../{{hub}}/docs/studies`. A retracted finding is a dead end, a hint is a lead to confirm, a confirmed finding is a starting point, one marked recheck may have drifted. Cite what you used in the phase note.
-2. **Plan.** Add the phase to `PLAN.md` with its question and its type. A confirm phase fixes its protocol there (its own `### NN-slug` under Protocol), then freezes it before its first run: `uv run python -m study.protocol freeze phases/NN-slug`. The stamp refuses a confirm run whose protocol changed since; a change is a deviation, logged, then frozen again.
+2. **Plan.** Add the phase to `PLAN.md` with its question, its type, its consolidation level and its budget (core rule 11). A confirm phase fixes its protocol there (its own `### NN-slug` under Protocol), then freezes it before its first run: `uv run python -m study.protocol freeze phases/NN-slug`. The stamp refuses a confirm run whose protocol changed since; a change is a deviation, logged, then frozen again.
 3. **Verify, then run.** Check the method on a known case first (core rule 2), then run. Write the phase note `docs/wiki/phases/NN-slug.md` as the phase goes: what was asked, what happened, negative results included.
-4. **Publish.** At the end of the phase, follow the `publish-finding` skill: it writes the phase's findings into the hub in one commit, after a `review-finding` for any that would be confirmed, and links them from the phase note.
+4. **Publish.** At the end of the phase, follow the `publish-finding` skill: it writes the phase's findings into the hub in one commit, as `hint` unless the phase's level is `publish` (then after a `review-finding` for those that would be confirmed), and links them from the phase note.
 
 ## The wiki
 
@@ -55,3 +55,9 @@ Every study of the workspace follows these; `PLAN.md` records any rule this stud
 8. **Canary reruns** after any library, solver or environment version change; drift beyond the stated uncertainty is a deviation and flags the hub findings it touches.
 9. **Nothing derived committed; a study never edits the library** (library change = library merge request, then a logged pin bump).
 10. **Units**: quantities carry units explicitly in code (unit tests on dimensions, or pint), and every number in a note has its unit.
+11. **Grounded knowledge per token.** Each phase declares a consolidation level in `PLAN.md` and in its `config.yaml` (`consolidation:`); it sets how much the phase spends to ground its answer, and the next level is reached by a later phase, never by default.
+    - `scout` (the default for explore): the fastest grounded answer. One known-case check; targets spot-checked (a figure value read by eye, with its reading error); findings published as `hint`, without review; no stamped diagnostics.
+    - `build` (the default for confirm): the frozen protocol, verification tests, stamped counted runs; findings published as `hint`, without adversarial review.
+    - `publish`: only to promote hints the user names to `confirmed`: one `review-finding` reviewer for the phase's findings together, two rounds at most; what is not then upheld stays `hint`.
+
+    Before building an optional instrument (a figure digitiser, a diagnostics run, a sweep), name the claim it serves and use the cheapest one that answers it. Delegate well-scoped work (reviews against the checklist, searches, figure reading, `ws check` fixes, wiki edits from a given diff) to subagents on the smaller model (`model: sonnet`); keep derivations, method and protocol design, and the reading of results in the main session. Keep the context small: tool output near 50 lines at most (longer output goes to a file, then is searched), images cropped and read once, scripts that print summaries. Each phase states a rough budget in `PLAN.md` (tokens, counted runs), and its note reports what it spent.
