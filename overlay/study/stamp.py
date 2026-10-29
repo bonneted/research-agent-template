@@ -1,4 +1,4 @@
-"""The run stamp: what it takes to reproduce a run, written into its folder (rule 7).
+"""The run stamp: what it takes to reproduce a run, written into its folder (core rule 3).
 
 A phase's `run.py` wraps its work in `run`:
 
@@ -6,36 +6,60 @@ A phase's `run.py` wraps its work in `run`:
         ...  # write results into `folder`
 
 The stamp records the study commit and whether the tree was clean (the diff is saved
-beside it when not), the library's install as `spimat.installed_from()` reports it, the
-phase's configuration, the seed, the hardware and the wall-clock. A runner that builds
-each run's configuration (a base file plus overrides) passes it as `config`: the stamp
-records it as `run_config`, beside the phase's. A run in a confirm phase refuses to
-start on a dirty tree.
+beside it when not), the library's install, the phase's configuration, the seed, the
+hardware and the wall-clock. The library's install is what its `installed_from()`
+reports when it has one, or else its distribution's version and origin, with the commit
+and state of the checkout when it is installed editable. A runner that builds each run's
+configuration (a base file plus overrides) passes it as `config`: the stamp records it
+as `run_config`, beside the phase's.
+
+Each conda environment the phase's configuration lists under `environments` (a run
+that calls `conda run -n <name>`) is recorded by the hash of its `conda list
+--explicit`, beside the hash of its pinned file `environments/<name>.yml`. The
+workspace's `stamp_extras`, a `module:function` returning a mapping, adds its fields
+under `extras`.
+
+A run in a confirm phase refuses to start on a dirty tree, and on a `PLAN.md` whose
+protocol is not the one frozen for the phase (`study/protocol.py`).
 """
 
 import copy
+import hashlib
+import importlib
+import importlib.metadata
 import json
 import os
 import platform
 import shutil
 import subprocess
 import time
+from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Iterator
 
 import yaml
 
+from study import protocol
 from study.paths import ROOT, RUNS
 
 STAMP = "stamp.json"
 DIFF = "diff.patch"
 CONFIG = "config.yaml"
+# Written by `ws spawn` from the workspace manifest: the library's distribution and
+# import name (empty for a workspace without one), and the stamp's extra fields.
+LIBRARY = "{{library}}"
+STAMP_EXTRAS = "{{stamp_extras}}"
+# The folder of the pinned conda environments, `environments/<name>.yml`.
+ENVIRONMENTS = "environments"
 
 
 class DirtyTree(RuntimeError):
     """A confirm run was asked for on a study tree with uncommitted changes."""
+
+
+class CondaError(RuntimeError):
+    """A conda environment the phase uses could not be recorded."""
 
 
 def _git(*args: str, root: Path, check: bool = True) -> str:
@@ -55,7 +79,10 @@ def _diff(root: Path) -> bytes:
         if not name:
             continue
         untracked = subprocess.run(
-            [*command, "--no-index", "--", os.devnull, name], cwd=root, capture_output=True
+            [*command, "--no-index", "--", os.devnull, name],
+            cwd=root,
+            capture_output=True,
+            check=False,
         )
         # Exits 1 when the files differ, which they always do here; more is an error.
         if untracked.returncode > 1:
@@ -64,12 +91,30 @@ def _diff(root: Path) -> bytes:
     return diff
 
 
-def _library() -> dict:
-    """The library's install; for an editable one, the commit and state of its checkout."""
-    # Imported here, so the study's tests can stand a fake spimat in before the import.
-    import spimat
+def _distribution(name: str) -> dict:
+    """The library's install as its distribution's metadata records it (PEP 610)."""
+    distribution = importlib.metadata.distribution(name)
+    report: dict = {"version": distribution.version, "editable": False}
+    origin = distribution.read_text("direct_url.json")
+    if origin:
+        url = json.loads(origin)
+        report["url"] = url.get("url")
+        report["editable"] = bool(url.get("dir_info", {}).get("editable"))
+        if commit := url.get("vcs_info", {}).get("commit_id"):
+            report["commit"] = commit
+        if report["editable"] and str(report["url"]).startswith("file://"):
+            report["path"] = report["url"].removeprefix("file://")
+    return report
 
-    report = spimat.installed_from()
+
+def _library() -> dict | None:
+    """The library's install; for an editable one, the commit and state of its checkout."""
+    if not LIBRARY or LIBRARY.startswith("{{"):
+        return None
+    # Imported here, so the study's tests can stand a fake library in before the import.
+    module = importlib.import_module(LIBRARY)
+    installed_from = getattr(module, "installed_from", None)
+    report = dict(installed_from()) if callable(installed_from) else _distribution(LIBRARY)
     path = report.get("path")
     if report.get("editable") and path and (Path(path) / ".git").exists():
         checkout = Path(path)
@@ -79,6 +124,45 @@ def _library() -> dict:
             "dirty": bool(_git("status", "--porcelain", root=checkout).strip()),
         }
     return report
+
+
+def _environments(names: list[str], root: Path) -> list[dict]:
+    """Each conda environment by the hash of its explicit package list, and of its pinned file."""
+    conda = os.environ.get("CONDA_EXE") or "conda"
+    records = []
+    for name in names:
+        try:
+            listing = subprocess.run(
+                [conda, "list", "--explicit", "-n", name],
+                check=True,
+                capture_output=True,
+            ).stdout
+        except (OSError, subprocess.CalledProcessError) as error:
+            raise CondaError(
+                f"conda environment {name}: `conda list --explicit` failed ({error})"
+            ) from error
+        pinned = root / ENVIRONMENTS / f"{name}.yml"
+        records.append(
+            {
+                "name": name,
+                "explicit_sha256": hashlib.sha256(listing).hexdigest(),
+                "file": f"{ENVIRONMENTS}/{name}.yml",
+                "file_sha256": (
+                    hashlib.sha256(pinned.read_bytes()).hexdigest()
+                    if pinned.is_file()
+                    else None
+                ),
+            }
+        )
+    return records
+
+
+def _extras() -> dict | None:
+    """The fields the workspace's `stamp_extras` adds, or None without one."""
+    if not STAMP_EXTRAS or STAMP_EXTRAS.startswith("{{"):
+        return None
+    module, _, function = STAMP_EXTRAS.partition(":")
+    return dict(getattr(importlib.import_module(module), function)())
 
 
 def _hardware() -> dict:
@@ -99,7 +183,7 @@ def _hardware() -> dict:
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return datetime.now(UTC).isoformat(timespec="seconds")
 
 
 @contextmanager
@@ -118,7 +202,8 @@ def run(
     configuration, is recorded as `run_config` beside the phase's. The stamp gets its
     wall-clock and end time when the block ends, even by an exception (then `failed` is
     true).
-    Raises `DirtyTree` for a confirm phase whose study has uncommitted changes, and
+    Raises `DirtyTree` for a confirm phase whose study has uncommitted changes,
+    `protocol.ProtocolError` for one whose protocol is not frozen as it is, and
     `ValueError` for a phase whose `config.yaml` declares no type.
     """
     phase = Path(phase).resolve()
@@ -133,6 +218,10 @@ def run(
             f"confirm phase {phase.name}: the study has uncommitted changes; "
             "commit them (or stash them) before a confirm run, so it stamps a commit alone"
         )
+    if kind == "confirm":
+        protocol.check(phase, Path(root) / protocol.PLAN)
+    environments = _environments(list(phase_config.get("environments") or []), Path(root))
+    extras = _extras()
     started = _now()
     stamp_time = datetime.fromisoformat(started).strftime("%Y%m%dT%H%M%S")
     folder = Path(runs) / phase.name / (name or f"{stamp_time}-seed{seed}")
@@ -146,6 +235,8 @@ def run(
         "phase": {"name": phase.name, "type": kind},
         "config": phase_config,
         **({"run_config": copy.deepcopy(config)} if config is not None else {}),
+        **({"environments": environments} if environments else {}),
+        **({"extras": extras} if extras is not None else {}),
         "seed": seed,
         "hardware": _hardware(),
         "started": started,

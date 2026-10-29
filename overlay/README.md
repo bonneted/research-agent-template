@@ -1,11 +1,13 @@
 # {{study}}
 
-A study of the spimat workspace: one research question answered with the [spimat](https://gitlab.kuleuven.be/r2d/public/spimat) library. The question and the protocol are in [PLAN.md](PLAN.md), the results in the wiki (`docs/wiki/index.md`), the rules its agent follows in [AGENTS.md](AGENTS.md).
+A study of the {{workspace}} workspace: one research question. The question and the protocol are in [PLAN.md](PLAN.md), the results in the wiki (`docs/wiki/index.md`), the rules its agent follows in [AGENTS.md](AGENTS.md) and the packs of `rules/` that `PLAN.md` selects.
 
 ```
-PLAN.md                        question, claim type, protocol, phases, deviations
-study/                         shared study code; stamp.py stamps each run
+PLAN.md                        question, claim type, rule packs, protocol, phases, deviations
+rules/                         the rule packs, copied from the hub at spawn
+study/                         shared study code; stamp.py stamps each run, protocol.py freezes a protocol
 phases/NN-slug/                run.py, report.py, config.yaml (type: explore | confirm)
+environments/<name>.yml        conda environments with exact pins, for what uv cannot install
 docs/wiki/phases/NN-slug.md    one note per phase
 runs/NN-slug/<run>/            outside git; set {{runs_env}} to keep runs elsewhere
 resources/                     link to the workspace's pool, made by ws sync
@@ -13,16 +15,16 @@ resources/                     link to the workspace's pool, made by ws sync
 
 ## Set up
 
-The study lives in the spimat workspace, beside its hub. On a new machine, clone the hub and let it build the rest:
+The study lives in the {{workspace}} workspace, beside its hub. On a new machine, clone the hub and let it build the rest:
 
 ```bash
-mkdir spimat-ws && cd spimat-ws
+mkdir {{workspace}}-ws && cd {{workspace}}-ws
 git clone {{hub_url}}
 cd {{hub}} && uv run ws sync && uv run ws fetch
 cd ../{{study}} && uv sync
 ```
 
-The library is pinned at a commit in `pyproject.toml`; `uv sync` installs that commit. Commit the `uv.lock` it writes.
+The library, when the workspace has one, is pinned at a commit in `pyproject.toml`; `uv sync` installs that commit. Commit the `uv.lock` it writes. A conda environment of `environments/` is made with `conda env create -f environments/<name>.yml`.
 
 ## After spawning
 

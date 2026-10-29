@@ -1,18 +1,17 @@
 [project]
 name = "{{study}}"
 version = "0.1.0"
-description = "A spimat study: its question is in PLAN.md"
+description = "A study of the {{workspace}} workspace: its question is in PLAN.md"
 requires-python = ">=3.11"
-dependencies = ["spimat", "pyyaml"]
+dependencies = [
+# {{library_dependency}}
+    "pyyaml",
+]
 
 [dependency-groups]
 dev = ["pytest"]
 
-# The pin: the library commit this study runs on. Moving it is a deviation logged in
-# PLAN.md, followed by the canary runs.
-[tool.uv.sources]
-spimat = { git = "{{library_url}}", rev = "{{library_commit}}" }
-
+# {{library_source}}
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
