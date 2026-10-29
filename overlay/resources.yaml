@@ -1,0 +1,4 @@
+# Code and data resources of this study, fetched into the workspace's pool by
+# `uv run ws fetch` in the hub (format in the hub's README).
+code: []
+data: []
