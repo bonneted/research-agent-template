@@ -2,6 +2,7 @@
 
 import re
 import shutil
+import tomllib
 from pathlib import Path
 
 from ws import manifest, zotero
@@ -38,6 +39,8 @@ _WORDING = {
     "Project": "Study",
 }
 _TOPIC = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
+# The study's Python when the library does not say: the overlay's own floor.
+_PYTHON = ">=3.11"
 _BLOCK = re.compile(r"^# \{\{(\w+)\}\}\n", re.MULTILINE)
 
 
@@ -153,6 +156,7 @@ def _pin(root: Path, workspace: Workspace) -> dict[str, str]:
             "library_commit": "",
             "library_dependency": "",
             "library_source": "",
+            "requires_python": f'requires-python = "{_PYTHON}"\n',
         }
     library = workspace.repository(workspace.library)
     if library is None:
@@ -167,7 +171,9 @@ def _pin(root: Path, workspace: Workspace) -> dict[str, str]:
     if not head:
         raise SpawnError(f"{library.url} has no default branch to pin")
     commit = head[0]
+    python = _requires_python(root / library.name, commit)
     return {
+        "requires_python": f'requires-python = "{python}"\n',
         "library": library.name,
         "library_url": library.url,
         "library_commit": commit,
@@ -179,6 +185,23 @@ def _pin(root: Path, workspace: Workspace) -> dict[str, str]:
             f'{library.name} = {{ git = "{library.url}", rev = "{commit}" }}\n'
         ),
     }
+
+
+def _requires_python(clone: Path, commit: str) -> str:
+    """The library's `requires-python` at the pinned commit, read from its clone beside
+    the hub, so that the study resolves on the same Python; the overlay's floor when the
+    clone is missing, lacks the commit, or does not say.
+    """
+    try:
+        text = git("show", f"{commit}:pyproject.toml", cwd=clone)
+    except (GitError, OSError):
+        return _PYTHON
+    try:
+        project = tomllib.loads(text).get("project", {})
+    except tomllib.TOMLDecodeError:
+        return _PYTHON
+    value = project.get("requires-python")
+    return value if isinstance(value, str) and value else _PYTHON
 
 
 def spawn(

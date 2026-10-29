@@ -2,7 +2,7 @@
 name = "{{study}}"
 version = "0.1.0"
 description = "A study of the {{workspace}} workspace: its question is in PLAN.md"
-requires-python = ">=3.11"
+# {{requires_python}}
 dependencies = [
 # {{library_dependency}}
     "pyyaml",

@@ -141,6 +141,31 @@ def test_spawned_study_pins_the_library_at_its_default_branch_commit(
     assert 'LIBRARY = "demo"' in (spawned / "study/stamp.py").read_text()
 
 
+def test_spawned_study_runs_on_the_librarys_python(workspace: Workspace) -> None:
+    # The library's pinned commit says which Python it needs; the study follows it.
+    library = workspace.root / "demo"
+    workspace.sync()
+    (library / "pyproject.toml").write_text(
+        '[project]\nname = "demo"\nrequires-python = ">=3.13,<3.14"\n'
+    )
+    git("add", "pyproject.toml", cwd=library)
+    git("commit", "--quiet", "-m", "Pin the Python", cwd=library)
+    git("push", "--quiet", "origin", "HEAD:main", cwd=library)
+
+    result = workspace.spawn("mt2")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    pyproject = tomllib.loads((workspace.root / STUDY / "pyproject.toml").read_text())
+    assert pyproject["project"]["requires-python"] == ">=3.13,<3.14"
+
+
+def test_a_study_without_the_librarys_word_on_python_keeps_the_overlays(
+    spawned: Path,
+) -> None:
+    pyproject = tomllib.loads((spawned / "pyproject.toml").read_text())
+    assert pyproject["project"]["requires-python"] == ">=3.11"
+
+
 def test_a_workspace_without_a_library_spawns_studies_with_no_pin(
     workspace: Workspace,
 ) -> None:
