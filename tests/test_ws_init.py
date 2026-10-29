@@ -88,7 +88,7 @@ def test_init_fills_the_skeleton(root: Path) -> None:
     assert (hub / ".claude/skills/ask-acme/SKILL.md").is_file()
     unfilled = re.compile(r"\{\{(name|hub|hub_url|gitlab|library|zotero_root|resources_env)\}\}")
     for name in git("ls-files", cwd=hub).splitlines():
-        if not name.startswith(("skeleton/", "overlay/", "tests/")) and name.endswith(".md"):
+        if not name.startswith(("skeleton/", "overlay/", "tests/", ".scratch/")) and name.endswith(".md"):
             assert not unfilled.search((hub / name).read_text()), name
 
 
