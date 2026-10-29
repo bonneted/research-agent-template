@@ -1,4 +1,4 @@
-# The resource manifest, with references.bib (format in resources/README.md).
-# zotero_collection: Projects/my-project   # the Zotero collection references.bib is pulled from
+# Code and data resources of the hub, those serving several studies, fetched into the
+# workspace's pool by `uv run ws fetch` (format in README.md).
 code: []
 data: []

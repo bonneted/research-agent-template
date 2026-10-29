@@ -1,6 +1,8 @@
-# Sources stay out of git
-resources/*
-!resources/README.md
+# The link to the resource pool, written by ws sync
+/resources
+
+# Claude Code mirror of .agents/skills, written by ws sync
+.claude/skills/
 
 # Obsidian per-user state
 docs/.obsidian/workspace*.json
@@ -10,3 +12,4 @@ docs/.obsidian/workspace*.json
 __pycache__/
 *.pyc
 .pytest_cache/
+.ruff_cache/
