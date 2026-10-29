@@ -113,6 +113,13 @@ def pull(
     return lines, not failures
 
 
+def _same(
+    library: zotero.Library, identifier: lookup.Identifier, text: str
+) -> list[dict]:
+    """The items of the library holding `text` that `identifier` names."""
+    return [data for data in library.search(text) if lookup.names(identifier, data)]
+
+
 def add(
     root: Path,
     workspace: Workspace,
@@ -129,11 +136,17 @@ def add(
     collection, described = _collection(workspace, name, library)
     if collection is None:
         return [f"{name}: FAILED: {_no_collection(described)}"], False
-    existing = [
-        data
-        for data in library.search(identifier.value)
-        if lookup.names(identifier, data)
-    ]
+    existing = _same(library, identifier, identifier.value)
+    found = None
+    if not existing:
+        # Zotero's search splits a DOI into words and seldom finds it whole: look the
+        # reference up, and search the library again by its title.
+        try:
+            found = lookup.item(identifier, library.send)
+        except lookup.LookupFailed as error:
+            return [f"{name}: FAILED: {error}"], False
+        if found.get("title"):
+            existing = _same(library, identifier, found["title"])
     if existing:
         # One item per reference in the library: it joins this collection as it is.
         data = existing[0]
@@ -144,10 +157,8 @@ def add(
             library.add(data, citationKey=key)
         lines = [f"{name}: added {key}, already in Zotero"]
     else:
-        try:
-            data = lookup.item(identifier, library.send)
-        except lookup.LookupFailed as error:
-            return [f"{name}: FAILED: {error}"], False
+        assert found is not None  # looked up above, since nothing was found by it
+        data = found
         key = library.unique_citekey(data, set())
         library.create({**data, "collections": [collection], "citationKey": key})
         lines = [f"{name}: added {key}"]

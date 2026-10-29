@@ -469,6 +469,22 @@ def test_add_reuses_the_item_already_in_the_library(
     )
 
 
+def test_add_finds_the_item_by_its_title_when_zotero_misses_the_doi(
+    synced: Workspace, web: Web
+) -> None:
+    # Zotero's search seldom finds a DOI whole; the item is then found by its title.
+    web.finds_whole_dois = False
+    web.crossref["10.1016/j.jcp.2018.10.045"] = CROSSREF_RAISSI
+    existing = web.item([web.framework], **RAISSI)
+
+    lines, ok = add(synced, web, "10.1016/j.jcp.2018.10.045")
+
+    assert ok, lines
+    assert len(web.items) == 1
+    assert web.data(existing)["collections"] == [web.framework, web.hub]
+    assert lines[0] == f"demo-hub: added {RAISSI['citationKey']}, already in Zotero"
+
+
 @pytest.mark.parametrize(
     "identifier", ["https://example.org/thesis.pdf", "Raissi et al. 2019", "hdl:1234/5"]
 )

@@ -57,6 +57,8 @@ class Web:
         self.writable = True
         self.quota_full = False
         self.down = False
+        # The Web API's search splits a DOI into words; with this off, it never finds one.
+        self.finds_whole_dois = True
         self.requests: list[tuple[str, str]] = []
         # File uploads authorized, by upload URL path, then uploaded, by upload key.
         self.uploads: dict[str, dict] = {}
@@ -201,6 +203,8 @@ class Web:
         if method == "GET" and segments in (["items"], ["items", "top"]):
             # Like the Web API's `qmode=everything`: the text anywhere in the item.
             text = query.get("q", "").lower()
+            if not self.finds_whole_dois and text.startswith("10."):
+                return _page([], query)
             found = [
                 item
                 for item in self.items.values()
