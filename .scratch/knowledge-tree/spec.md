@@ -36,20 +36,20 @@ Agents make rigour affordable. Pre-registered protocols, verification on known c
 
 ## Rules (ADR 0007, 0008, 0009, 0010)
 
-Twelve core rules in `AGENTS.md`, in four groups. **Fixed** ones are never set aside; **adjustable** ones may be, with the reason in `PLAN.md` (Rules section). Wording to be finalised in slice 2; content:
+Twelve core rules in `AGENTS.md`, in four groups, grounded in the literature of `literature.md`. **Fixed** ones are never set aside; **adjustable** ones may be, with the reason in `PLAN.md` (Rules section). Wording to be finalised in slice 2; content:
 
 | Group | Rule | Guards against | Kind |
 |---|---|---|---|
-| Planning | 1. Explore or confirm; a confirm protocol is fixed before its first run, deviations logged; only confirm gives `confirmed` | testing hypotheses suggested by the data | adjustable |
+| Planning | 1. Explore or confirm; a confirm protocol is fixed before its first run — question, method, analysis (metric, comparison, how uncertainty is computed), sample size or stopping rule, and the result that would refute the claim — deviations logged; only confirm gives `confirmed` | testing hypotheses suggested by the data, optional stopping | adjustable |
 | Planning | 2. Grounded knowledge per token: each phase declares its consolidation level (`scout`, `build`, `publish`) and budget; the next level is a later phase, never the default | rigour spent where it is not needed; claims stronger than what was spent | adjustable |
-| Evidence | 3. Verification before results: a method is checked on a case with a known answer (analytical solution, published value, control) before it produces a new result | silent method bugs read as findings | adjustable |
+| Evidence | 3. Verification before results: a method is checked on a case with a known answer (analytical solution, published value, manufactured solution, control) before it produces a new result | silent method bugs read as findings | adjustable |
 | Evidence | 4. Every number traces: to a run (commit and configuration beside the output; the full stamp in the rigour pack), a derivation, or a page of a source; every number in a note has its unit | untraceable or drifting numbers, unit errors | fixed |
 | Evidence | 5. No selection on the reported metric: settings chosen on a case separate from evaluation | tuning on the test set, leakage | adjustable |
-| Evidence | 6. Uncertainty with every headline number | false precision | adjustable |
-| Evidence | 7. A comparison is against the strongest competing method at its best setting | straw-man baselines | adjustable |
+| Evidence | 6. Uncertainty with every headline number: an estimate with its interval; a p-value or "significant" is never the claim alone | false precision, significance as the finding | adjustable |
+| Evidence | 7. A comparison is against the strongest competing method, tuned with the same budget as the proposed one; both budgets stated | straw-man and under-tuned baselines | adjustable |
 | Claims | 8. Source claims are grounded, inferences are marked: a claim from a source cites its page and is checked against the passage; the agent's own inference is labelled as such | hallucination, citation laundering | fixed |
-| Claims | 9. A claim states its scope: the conditions it was tested under; nothing extrapolates beyond them without a label | over-generalisation | adjustable |
-| Claims | 10. Negative results are published, upward too | the file drawer | fixed |
+| Claims | 9. A claim states its scope: the conditions it was tested under; nothing extrapolates beyond them without a label; a claim about the physical world rests on validation evidence (measurement), or says it holds for the model only | over-generalisation, verification passed off as validation | adjustable |
+| Claims | 10. Negative results and the denominator are published: every finding states how many variants, analyses or runs were tried to reach it, and the phase note lists them; negatives flow upward too | the file drawer, forking paths at agent scale | fixed |
 | Tree | 11. The tree never strengthens a claim | status inflation on the way up | fixed |
 | Tree | 12. The human confirms: the user approves a confirm protocol before it is frozen, and each promotion to `confirmed`, after a blind `review-finding` | agent self-certification | fixed |
 
@@ -62,14 +62,14 @@ Off-limits material is fixed too, stated in its own section rather than as a num
 
 ## Findings (ADR 0008, 0009)
 
-Carried from the workspace template, one level up instead of to a hub: statuses `hint | confirmed | retracted | superseded`; evidence kinds `run`, `derivation`, `reproduction`, `source`, `measurement`, `legacy`, and new `sub-inquiry`; one note per finding in the inquiry's `docs/findings/`, indexed by theme. `publish-finding` writes a child's findings into the parent in one commit and updates the route entry. `review-finding` is a blind reviewer before `confirmed`.
+Carried from the workspace template, one level up instead of to a hub: statuses `hint | confirmed | retracted | superseded`; evidence kinds `run`, `derivation`, `reproduction`, `source`, `measurement`, `legacy`, and new `sub-inquiry`; one note per finding in the inquiry's `docs/findings/`, indexed by theme. `publish-finding` writes a child's findings into the parent in one commit and updates the route entry. `review-finding` is a blind reviewer before `confirmed`: it receives only the finding, its evidence, the protocol and the rules — never the conversation or the user's expectations — and works from a checklist built on established ones (NeurIPS reproducibility checklist, the leakage taxonomy of Kapoor & Narayanan, the V&V framework of Roy & Oberkampf).
 
 ## Kit (ADR 0006, 0013, 0014, 0015)
 
 - **Text, copied into each inquiry**: `AGENTS.md` (rules, layout, flow, guardian, working efficiently), `CLAUDE.md` importing it, the skills, `rules/`. Spawn copies the parent's; an `upgrade` path in `ask-tree` diffs against a newer template tag and applies it with the user's approval.
 - **Skills** (8): `digest-source`, `update-wiki` (with move-up), `publish-finding`, `review-finding`, `spawn`, `adopt`, `detach`, `ask-tree` (router: next action, explaining a rule, pointing to the right mattpocock skill, upgrade). Each names the mattpocock skill it leans on (grilling in alignment, domain-modeling for the glossary and ADRs, tdd for phase code) instead of restating it.
 - **Tools**, one `uv tool` pinned in `inquiry.yaml` (`uvx research-knowledge-tree@<version> <command>`): `refs` (add, pull), `fetch`, `check`, the off-limits hook. No Python copied into inquiries.
-- **`check`**: links resolve; every note reachable from the entry index; no sideways links; `inquiry.yaml` sub-inquiries ↔ routing entries; finding statuses and evidence fields; rule 11 (no parent finding stronger than its sub-inquiry evidence); citekeys in `references.bib`; off-limits files present and a superset of the inherited set. One line per violation, non-zero exit. The rigour pack adds its own checks.
+- **`check`**: links resolve; every note reachable from the entry index; no sideways links; `inquiry.yaml` sub-inquiries ↔ routing entries; finding statuses and evidence fields; rule 11 (no parent finding stronger than its sub-inquiry evidence); citekeys in `references.bib`, each with a DOI, arXiv id or URL or flagged as a hand-entered Zotero item; off-limits files present and a superset of the inherited set. One line per violation, non-zero exit. The rigour pack adds its own checks.
 - **mattpocock skills**: declared in `.claude/settings.json` (`extraKnownMarketplaces`, `enabledPlugins`) at a pinned release; README fallback for other harnesses. The glossary file takes the name that release's `domain-modeling` uses (`CONTEXT.md` in 1.2.3; check the latest release in slice 2).
 
 ## Resources (ADR 0011)
@@ -80,9 +80,9 @@ Carried from the workspace template, one level up instead of to a hub: statuses 
 - Mode detected, not configured: a Zotero key in the environment and a collection in `inquiry.yaml`.
 - The pool is outside git, read-only for agents; `resources/` in each inquiry links to it (or one environment variable names it).
 
-## Off-limits (ADR 0012) — to confirm
+## Off-limits (ADR 0012)
 
-The names of off-limits material must not be committed, since an inquiry may be public. Proposed: the list lives in a gitignored `.off-limits.yaml` beside `inquiry.yaml`; spawn and adopt copy the inherited union into the child and write the guards (deny rules and hook in `.claude/settings.json`, `.ignore`); `check` verifies the child's set is a superset of its parent's when the parent is present. A fresh clone is unguarded until the user restores the list; the README and the alignment step say so.
+The names of off-limits material must not be committed, since an inquiry may be public. The list lives in a gitignored `.off-limits.yaml` beside `inquiry.yaml`; spawn and adopt copy the inherited union into the child and write the guards (deny rules and hook in `.claude/settings.json`, `.ignore`); `check` verifies the child's set is a superset of its parent's when the parent is present. A fresh clone is unguarded until the user restores the list; the README and the alignment step say so.
 
 ## README
 
