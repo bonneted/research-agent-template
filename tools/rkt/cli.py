@@ -28,8 +28,7 @@ def _parser() -> argparse.ArgumentParser:
     )
     checker = commands.add_parser(
         "check",
-        help="check links, indexes, routes, findings, citations and phases "
-        "files against the rules",
+        help="check links, indexes, routes, findings, citations and phases against the rules",
     )
     checker.add_argument(
         "--tree", action="store_true", help="also every sub-inquiry cloned below this one"
