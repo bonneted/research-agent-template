@@ -1,18 +1,17 @@
 [project]
-name = "workspace-hub"
-version = "0.1.0"
-description = "A research workspace hub and its workspace tool, ws"
+name = "research-knowledge-tree"
+version = "2.0.0"
+description = "The kit of the knowledge tree, and rkt: references, resources and checks of an inquiry"
 requires-python = ">=3.11"
 dependencies = ["pyyaml"]
 
 [project.scripts]
-ws = "ws.cli:main"
+rkt = "rkt.cli:main"
 
 [dependency-groups]
 dev = ["pytest"]
 
 [tool.pytest.ini_options]
-# `overlay/tests` are a study's tests, run in a spawned study.
 testpaths = ["tests"]
 
 [build-system]
@@ -20,4 +19,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["tools/ws"]
+packages = ["tools/rkt"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"kit" = "rkt/kit"

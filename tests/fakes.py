@@ -1,4 +1,4 @@
-"""A fake web for `ws refs`: the Zotero Web API of one library, Crossref, DataCite and arXiv.
+"""A fake web for `rkt refs`: the Zotero Web API of one library, Crossref, DataCite and arXiv.
 
 Each is answered from memory, as `ws` sends its requests (method, URL, headers, body);
 nothing goes to the network.
@@ -8,7 +8,7 @@ import json
 import urllib.parse
 from pathlib import Path
 
-from ws import zotero
+from rkt import zotero
 
 LIBRARY = "users/1"
 KEY = "secret"

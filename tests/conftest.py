@@ -1,8 +1,8 @@
-"""The temporary workspace every `ws` test drives.
+"""The temporary knowledge tree every `rkt` test drives.
 
-Local bare repositories stand in for GitLab: a workspace root holds the hub (with its
-workspace manifest) and a folder of remotes; `ws` runs from the hub as the researcher
-would run it.
+A root inquiry, `demo`, made from the kit by `rkt init`, with one sub-inquiry,
+`framework`, cloned into its `inquiries/`. Local bare repositories stand in for the
+forge; the pool is a folder of the temporary directory.
 """
 
 import subprocess
@@ -11,59 +11,20 @@ from pathlib import Path
 
 import pytest
 import yaml
+from rkt import kit
 
-HUB = Path(__file__).resolve().parents[1]
-
-# A stand-in for the research agent template: its layout and its "project" wording.
-TEMPLATE = {
-    "AGENTS.md": "# Project\n\nThe wiki is the project memory.\n",
-    "CLAUDE.md": "@AGENTS.md\n",
-    "pyproject.toml": '[project]\nname = "research-project"\n',
-    ".gitignore": "resources/*\n!resources/README.md\n.claude/skills/\n",
-    "resources/README.md": "# Resources\n",
-    "references.bib": "% Exported from Zotero. See resources/README.md.\n",
-    "docs/CONTEXT.md": "# Context\n\nThe project's vocabulary.\n",
-    "docs/wiki/index.md": "# Wiki\n\nWhy the project is built the way it is.\n",
-    "docs/wiki/reading-list.md": "Needed by the project, for Project work and projects.\n",
-    ".agents/skills/digest-source/SKILL.md": (
-        "Judge it against the project line. Missing: run `uv run fetch`.\n"
-        "Add it with `uv run refs add <DOI>`, then `uv run refs pull`.\n"
-    ),
-    "src/research_project/__init__.py": "",
-    "tools/zotero.py": 'API = "https://api.example.org/projects/"\n',
-    "tests/test_import.py": "def test_package_imports():\n    import research_project\n",
-    # The template's own fetch step, which a study leaves to the hub's `ws fetch`.
-    "resources.yaml": "# Fetched into resources/ by `uv run fetch` (see resources/README.md).\ncode: []\n",
-    "tools/fetch/__init__.py": "",
-    "tools/fetch/cli.py": "def main():\n    pass\n",
-    "tests/conftest.py": "from pathlib import Path\n",
-    "tests/test_fetch.py": "from fetch.cli import main\n\n\ndef test_main():\n    main()\n",
-    "tests/test_retrieve.py": "from fetch import retrieve  # noqa: F401\n",
-    "tests/test_refs.py": "from fetch import refs  # noqa: F401\n",
-    "uv.lock": "version = 1\n",
-}
-
-
-def hub_files() -> dict[str, str]:
-    """The hub's overlay, rule packs and off-limits hook as tracked in this repository, a
-    hub skill, the library's private context, and the hub's ignores.
-    """
-    tracked = git(
-        "ls-files", "-z", "--", "overlay", "rules", "tools/ws/guard_off_limits.py", cwd=HUB
-    ).split("\0")
-    files = {name: (HUB / name).read_text() for name in filter(None, tracked)}
-    files[".gitignore"] = "__pycache__/\n"
-    files["skills/publish-finding/SKILL.md"] = "# Publish a finding\n"
-    files["docs/studies/index.md"] = "- **demo-framework**: framework\n"
-    files["docs/library/CLAUDE.md"] = "# The library's private context\n"
-    return files
+TEMPLATE = Path(__file__).resolve().parents[1]
+# The rigour pack's code, imported as an inquiry imports it: `study`.
+sys.path.insert(0, str(TEMPLATE / "kit" / "rules" / "rigour"))
 
 
 @pytest.fixture(autouse=True)
-def isolated_git(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    """Keep the user's git configuration and pool out of the tests."""
-    monkeypatch.delenv("DEMO_RESOURCES", raising=False)
-    # No retrieval configuration of the user's: no Zotero, and no email for Unpaywall.
+def isolated(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Keep the user's git configuration, rkt configuration and pool out of the tests."""
+    # The pool is the temporary one, never the user's.
+    monkeypatch.setenv("RKT_POOL", str(tmp_path / "pool"))
+    monkeypatch.delenv("RKT_SSH_HOST", raising=False)
+    # No configuration of the user's: no Zotero, no email for Unpaywall, no pool.
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
     monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(tmp_path / "gitconfig"))
     monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
@@ -83,7 +44,6 @@ def make_remote(remotes: Path, name: str, files: dict[str, str] | None = None) -
     work = remotes / f"{name}-seed"
     work.mkdir(parents=True)
     git("init", "--quiet", cwd=work)
-    # `git init --initial-branch` needs git 2.28; r2d2 has 2.25.
     git("checkout", "--quiet", "-b", "main", cwd=work)
     for path, text in {"README.md": f"# {name}\n", **(files or {})}.items():
         (work / path).parent.mkdir(parents=True, exist_ok=True)
@@ -95,76 +55,78 @@ def make_remote(remotes: Path, name: str, files: dict[str, str] | None = None) -
     return bare.as_uri()
 
 
-class Workspace:
-    """A workspace root holding only the hub, as on a machine right after cloning it."""
+def write_yaml(path: Path, **changes: object) -> None:
+    """Change keys of an `inquiry.yaml`."""
+    data = yaml.safe_load(path.read_text()) or {}
+    data.update(changes)
+    path.write_text(yaml.safe_dump(data, sort_keys=False))
+
+
+def commit_all(folder: Path, message: str = "Work") -> str:
+    git("add", "-A", cwd=folder)
+    git("commit", "--quiet", "--allow-empty", "-m", message, cwd=folder)
+    return git("rev-parse", "HEAD", cwd=folder)
+
+
+class Tree:
+    """A root inquiry and one sub-inquiry, each a git repository made from the kit."""
 
     def __init__(self, tmp: Path) -> None:
         self.tmp = tmp
         self.remotes = tmp / "remotes"
-        self.root = tmp / "ws"
-        self.root.mkdir()
-        self.roles = {
-            "demo": "library",
-            "demo-hub": "hub",
-            "demo-framework": "study",
-        }
-        # The hub indexes its study, and the study has notes to mount.
-        seeds = {
-            "demo-hub": hub_files(),
-            "demo-framework": {"docs/wiki/index.md": "# Wiki\n"},
-        }
-        self.urls = {
-            name: make_remote(self.remotes, name, seeds.get(name))
-            for name in self.roles
-        }
-        self.template = make_remote(self.remotes, "template", TEMPLATE)
-        # The manifest's `workspace` block; a test adds keys such as `off_limits`.
-        self.settings: dict = {"name": "demo"}
-        self.hub = self.root / "demo-hub"
-        git("clone", "--quiet", self.urls["demo-hub"], str(self.hub), cwd=self.root)
-        self.write_manifest()
+        self.remotes.mkdir()
+        self.root = tmp / "demo"
+        self.pool = tmp / "pool"
+        self.pool.mkdir()
+        self.urls = {name: make_remote(self.remotes, name) for name in ("demo", "framework")}
+        self.root = self._inquiry(tmp / "demo", "demo", "What does the demo show?")
+        self.child = self._inquiry(
+            self.root / "inquiries" / "framework", "framework", "Does the framework hold?"
+        )
+        write_yaml(self.root / "inquiry.yaml", zotero_collection="demo",
+                   inquiries=[{"name": "framework", "url": self.urls["framework"]}])
+        write_yaml(self.child / "inquiry.yaml", zotero_collection="demo/framework",
+                   parent=self.urls["demo"])
+        self.route()
 
-    def write_manifest(self) -> None:
-        lines = [
-            yaml.safe_dump({"workspace": self.settings}, sort_keys=False).rstrip(),
-            f"template: {self.template}",
-            "repositories:",
-        ]
-        for name, role in self.roles.items():
-            lines += [
-                f"  - name: {name}",
-                f"    url: {self.urls[name]}",
-                f"    role: {role}",
-            ]
-        (self.hub / "workspace.yaml").write_text("\n".join(lines) + "\n")
+    def _inquiry(self, folder: Path, name: str, question: str) -> Path:
+        git("clone", "--quiet", self.urls[name], str(folder), cwd=self.tmp)
+        lines, ok = kit.init(folder, question)
+        assert ok, lines
+        commit_all(folder, "Start the inquiry")
+        return folder
 
     @property
-    def pool(self) -> Path:
-        """Where the pool is when `DEMO_RESOURCES` is not set."""
-        return self.root / "resources"
+    def hub(self) -> Path:
+        """The root inquiry, by the name the older tests use."""
+        return self.root
 
-    def sync(self) -> subprocess.CompletedProcess[str]:
-        return self.run("sync")
-
-    def fetch(self) -> subprocess.CompletedProcess[str]:
-        return self.run("fetch")
-
-    def spawn(self, topic: str) -> subprocess.CompletedProcess[str]:
-        return self.run("spawn", topic)
+    def route(self) -> None:
+        """Route the root's index to the sub-inquiry, as `spawn` would."""
+        index = self.root / "docs/wiki/index.md"
+        text = index.read_text()
+        route = (
+            "- [framework](../../inquiries/framework/docs/wiki/index.md): "
+            "Does the framework hold? Active. Dive here for: the framework.\n"
+        )
+        index.write_text(text.replace("### Open\n", f"{route}\n### Open\n"))
 
     def run(self, *command: str) -> subprocess.CompletedProcess[str]:
-        return self.run_in(self.hub, *command)
+        return self.run_in(self.root, *command)
 
     def run_in(self, folder: Path, *command: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
-            [sys.executable, "-m", "ws", *command],
+            [sys.executable, "-m", "rkt", *command],
             cwd=folder,
             capture_output=True,
             text=True,
             check=False,
         )
 
+    def fetch(self) -> subprocess.CompletedProcess[str]:
+        return self.run("fetch", "--tree")
+
 
 @pytest.fixture
-def workspace(tmp_path: Path) -> Workspace:
-    return Workspace(tmp_path)
+def tree(tmp_path: Path) -> Tree:
+    return Tree(tmp_path)
