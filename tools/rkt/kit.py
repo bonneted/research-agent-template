@@ -5,7 +5,11 @@ import re
 import shutil
 from pathlib import Path
 
-from rkt import inquiry
+from rkt import inquiry, links
+
+# Claude Code reads skills from `.claude/skills`; the kit keeps them in `.agents/skills`.
+SKILLS_LINK = Path(".claude/skills")
+SKILLS = Path(".agents/skills")
 
 PACKAGE = "research-knowledge-tree"
 
@@ -29,7 +33,7 @@ def files() -> list[Path]:
     return sorted(
         path.relative_to(root)
         for path in root.rglob("*")
-        if path.is_file() and "__pycache__" not in path.parts
+        if path.is_file() and not path.is_symlink() and "__pycache__" not in path.parts
     )
 
 
@@ -49,6 +53,8 @@ def init(target: Path, question: str = "") -> tuple[list[str], bool]:
             continue
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(root / relative, destination)
+    if links.directory(target / SKILLS_LINK, target / SKILLS) == links.BLOCKED:
+        kept.append(SKILLS_LINK.as_posix())
     manifest = target / inquiry.FILENAME
     text = manifest.read_text(encoding="utf-8")
     text = re.sub(r'^question: ""', f"question: {question!r}" if question else 'question: ""', text, flags=re.MULTILINE)
@@ -58,7 +64,7 @@ def init(target: Path, question: str = "") -> tuple[list[str], bool]:
     lines += [f"{target}: kept {name}, already there" for name in kept]
     lines += [
         "",
-        "Next: open it with your agent and ask it to start the inquiry: it interviews you",
-        "on the question and the rules, then fills AGENTS.md, inquiry.yaml and PLAN.md.",
+        "Next: open it with your agent and ask it to start the inquiry (start-inquiry):",
+        "it interviews you on the question and the rules, then fills inquiry.yaml and PLAN.md.",
     ]
     return lines, True

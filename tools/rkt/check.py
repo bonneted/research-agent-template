@@ -53,7 +53,8 @@ PERMALINKS = {
 # A bibliography field that identifies a reference (rule 8).
 IDENTIFIERS = ("doi", "eprint", "url", "isbn")
 _PERMALINK = re.compile(
-    r"(?P<url>[a-z][a-z+.-]*://\S+?)/-/(?P<kind>blob|tree|commit)/(?P<sha>[0-9a-f]{7,40})"
+    # GitLab's `/-/blob/<sha>/…`, or GitHub's `/blob/<sha>/…`.
+    r"(?P<url>[a-z][a-z+.-]*://\S+?)(?:/-)?/(?P<kind>blob|tree|commit)/(?P<sha>[0-9a-f]{7,40})"
     r"(?:/(?P<path>[^\s#?)]*))?"
 )
 _PHASE = re.compile(r"\d{2}-[a-z0-9]+(?:-[a-z0-9]+)*")
@@ -422,7 +423,7 @@ def _evidence_item(item: object, where: str, clones: _Clones, report: Report) ->
     for field in PERMALINKS.get(kind, ()):
         if not _PERMALINK.search(str(item[field])):
             report.failures.append(
-                f"{where}: {field} must be a permalink at a commit (/-/blob/<sha>/...)"
+                f"{where}: {field} must be a permalink at a commit (/blob/<sha>/... or /-/blob/<sha>/...)"
             )
     for value in item.values():
         for clone, sha, path in clones.check(str(value), where, report):

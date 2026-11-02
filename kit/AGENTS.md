@@ -99,4 +99,4 @@ Keep the wiki current as part of the work, in the same turn:
 
 ## Skills
 
-In `.agents/skills/` (`.claude/skills` links to it): `digest-source`, `update-wiki`, `publish-finding`, `review-finding`, `spawn`, `adopt`, `detach`, and `ask-tree`, which the user types to ask what to do next. They lean on [Matt Pocock's skills](https://github.com/mattpocock/skills) (grilling, domain-modeling, tdd) where they name them.
+In `.agents/skills/` (`.claude/skills` links to it). You reach for these yourself: `start-inquiry`, `digest-source`, `update-wiki`, `publish-finding`, `review-finding`, `spawn`. The user types `adopt`, `detach`, and `ask-tree` (what to do next, why a rule, upgrading the kit). They lean on [Matt Pocock's skills](https://github.com/mattpocock/skills), declared in `.claude/settings.json`, where they name them (`grilling`, `domain-modeling`, `tdd`).

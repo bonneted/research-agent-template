@@ -261,3 +261,14 @@ def test_a_phase_declares_its_type_and_level(tree: Tree, config: str, message: s
     index_line(tree.root, "docs/wiki/phases/index.md", "- [01-sphere](01-sphere.md)")
 
     assert failures(tree) == [f"demo: FAILED: phases/01-sphere/config.yaml {message}"]
+
+
+def test_a_github_permalink_is_read_as_one(tree: Tree) -> None:
+    link = child_finding(tree, "hint").replace("/-/blob/", "/blob/")
+    finding(
+        tree.root, "a-claim",
+        evidence=f"  - kind: sub-inquiry\n    finding: {link}\n    status: confirmed\n",
+    )
+
+    assert any("says the sub-inquiry's finding is confirmed, but it is hint" in line
+               for line in failures(tree))

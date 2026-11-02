@@ -40,3 +40,22 @@ def test_every_rule_pack_the_readme_names_is_in_the_kit() -> None:
     for pack in ("rigour", "ml-training", "fe-simulation", "uq-reliability", "literature-check"):
         assert f"`{pack}`" in readme
         assert (TEMPLATE / "kit/rules" / f"{pack}.md").is_file()
+
+
+def test_init_links_the_skills_for_claude_code(tmp_path: Path) -> None:
+    kit.init(tmp_path)
+
+    link = tmp_path / ".claude" / "skills"
+    assert link.is_symlink()
+    assert (link / "start-inquiry" / "SKILL.md").is_file()
+
+
+def test_every_skill_the_kit_names_is_in_it() -> None:
+    agents = (TEMPLATE / "kit/AGENTS.md").read_text()
+    skills = sorted(path.parent.name for path in (TEMPLATE / "kit/.agents/skills").glob("*/SKILL.md"))
+    assert skills == sorted([
+        "adopt", "ask-tree", "detach", "digest-source", "publish-finding",
+        "review-finding", "spawn", "start-inquiry", "update-wiki",
+    ])
+    for name in skills:
+        assert f"`{name}`" in agents
