@@ -93,6 +93,10 @@ The names of off-limits material must not be committed, since an inquiry may be 
 5. Resources: two-minute bib-only path; ten-minute Zotero + Better BibTeX + ZotMoov path.
 6. Harness notes: Claude Code, others; mattpocock skills; Windows links.
 
+## Decided while building
+
+- **Slice 2.** The kit is `kit/`: exactly the files a new inquiry has. The repository root is the template's own (tool source, tests, ADRs, README) and is not an inquiry; `rkt init` copies `kit/` into an empty folder, `spawn` copies the parent's text. The tool's command is `rkt`, installed once with `uv tool install` at the version `inquiry.yaml` pins. The glossary is `GLOSSARY.md` at the inquiry's root, as mattpocock-skills v1.3.2's `domain-modeling` writes it. The off-limits guards go to `.claude/settings.local.json` (out of git), so the committed `.claude/settings.json` carries only the mattpocock declaration. The `rigour` pack (`kit/rules/rigour.md`) states the moved mechanisms; its code is `rkt stamp` and `rkt freeze`.
+
 ## Delivery
 
 One branch, `knowledge-tree`; each slice reviewed by the user before the next; a merge request at the end.

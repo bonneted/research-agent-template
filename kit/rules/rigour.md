@@ -1,0 +1,9 @@
+# rigour
+
+For an inquiry whose confirm phases must hold up to an outside check: a result to be published, a design decision, a claim others will build on. It turns core rules 1 and 4 from discipline into mechanism; its code is `rkt stamp` and `rkt freeze`, and `rkt check` adds its checks when the pack is selected.
+
+1. **Every run is stamped**: `rkt stamp` writes beside the run's output the inquiry's commit and a clean tree or the saved diff, the library commits, the configuration, the seed, the environments, the hardware and the wall-clock. Core rule 4 is then met by the stamp alone.
+2. **A confirm protocol is frozen** before its first run: `rkt freeze phases/NN-slug` records the hash of the protocol's text (the shared part of `PLAN.md`'s Protocol section and the phase's own `### NN-slug`) in the phase's `config.yaml`. The stamp refuses a confirm run from a dirty tree or from a protocol whose hash changed; a change is a deviation, logged, then frozen again.
+3. **Environments are pinned.** Python through `uv.lock`. A solver uv cannot install gets a conda environment, `environments/<name>.yml` with exact pins (`name=version=build`), called with `conda run -n <name>` and never sharing a process with the uv environment; the stamp records the hash of its `conda list --explicit`, and `rkt check` reports one that drifted.
+4. **Canary reruns.** `PLAN.md` names one or two reference runs (a phase and a seed). They are rerun after any library pin bump, solver or environment change, or change to shared code; drift beyond the stated uncertainty is a deviation, and marks `recheck` on the findings it touches, here and in the parent.
+5. **Units in code**: quantities carry their units (unit tests on dimensions, or `pint`), not only in the notes.

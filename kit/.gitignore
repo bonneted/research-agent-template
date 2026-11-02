@@ -1,0 +1,23 @@
+# Sub-inquiries: independent repositories, cloned in place
+/inquiries/
+
+# The link to the resource pool
+/resources
+
+# Off-limits list and its guards, never committed (names may be confidential)
+/.off-limits.yaml
+/.ignore
+/.claude/hooks/
+/.claude/settings.local.json
+
+# Runs, outside git
+/runs/
+
+# Obsidian per-user state
+.obsidian/workspace*.json
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/

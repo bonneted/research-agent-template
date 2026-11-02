@@ -1,0 +1,18 @@
+# This inquiry's relations, read by rkt and the skills. Prose about them lives in
+# docs/wiki/index.md (the Sub-inquiries section); keep the two in step (rkt check).
+
+question: ""            # one question, at any breadth, in one sentence
+
+parent: null            # the parent inquiry's repository URL; null for a root
+
+inquiries: []           # sub-inquiries, cloned into inquiries/<name>/ (out of git)
+#  - name: burst-fdm
+#    url: https://gitlab.example.org/group/burst-fdm.git
+
+zotero_collection: null # e.g. copv/burst-fdm, nested like the tree; null: bib-only
+
+rule_packs: []          # packs of rules/ followed besides the core rules, e.g. [rigour, fe-simulation]
+
+kit:                    # where this inquiry's text came from, for upgrades (ask-tree)
+  template: https://gitlab.kuleuven.be/r2d/collaboration/research-knowledge-tree
+  version: 2.0.0        # the template tag, and the rkt version to run
