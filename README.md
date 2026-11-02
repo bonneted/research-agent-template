@@ -8,16 +8,7 @@ The ideas behind it are in the talk *Doing research with AI agents*: [slides (PD
 
 ## Inside an inquiry: sources, wiki, code
 
-```mermaid
-flowchart LR
-  S["<b>Sources</b><br/>references.bib · resources.yaml<br/>resources/ — the pool of PDFs, code, data"]
-  C["<b>Code</b><br/>phases/NN-slug/ — one folder per phase<br/>runs/ — outputs, out of git"]
-  W["<b>Wiki</b><br/>docs/wiki/ — index, concepts, sources, phases<br/>docs/findings/ — what is established"]
-  A(("Agent"))
-  S -- digest --> W
-  C -- update --> W
-  A -- reads index.md first --> W
-```
+![Inside an inquiry: sources are digested into the wiki, code changes update it, and the agent reads the wiki's index first](docs/figures/inquiry.svg)
 
 Everything the agent knows is plain Markdown in the folder, read by you in [Obsidian](https://obsidian.md) and by the agent before it answers. Sources are digested into the wiki, one note per source stating what the inquiry takes from it; code changes update the wiki in the same turn; what a phase establishes becomes a **finding**, with its status and its evidence. You can switch model or harness and keep all of it.
 
