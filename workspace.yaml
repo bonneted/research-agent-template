@@ -1,0 +1,14 @@
+# The template's example manifest. `ws init <name>` writes the hub's own in its place;
+# the keys are in README.md ("The manifest"). This one describes no real workspace: run
+# `ws init` from the folder that will hold the workspace, not `ws sync` here.
+workspace:
+  name: example
+  gitlab: https://gitlab.example.org/group/example
+  zotero_root: example
+  library: example
+  rule_packs_dir: rules
+template: https://gitlab.kuleuven.be/r2d/collaboration/research-agent-template.git
+repositories:
+  - name: example-hub
+    url: https://gitlab.example.org/group/example/example-hub.git
+    role: hub

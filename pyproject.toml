@@ -1,20 +1,23 @@
 [project]
-name = "research-project"
+name = "workspace-hub"
 version = "0.1.0"
-description = "Rename me"
+description = "A research workspace hub and its workspace tool, ws"
 requires-python = ">=3.11"
 dependencies = ["pyyaml"]
 
 [project.scripts]
-fetch = "fetch.cli:main"
-refs = "fetch.refs:main"
+ws = "ws.cli:main"
 
 [dependency-groups]
 dev = ["pytest"]
+
+[tool.pytest.ini_options]
+# `overlay/tests` are a study's tests, run in a spawned study.
+testpaths = ["tests"]
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/research_project", "tools/fetch"]
+packages = ["tools/ws"]
