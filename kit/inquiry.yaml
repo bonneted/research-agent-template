@@ -14,5 +14,5 @@ zotero_collection: null # e.g. copv/burst-fdm, nested like the tree; null: bib-o
 rule_packs: []          # packs of rules/ followed besides the core rules, e.g. [rigour, fe-simulation]
 
 kit:                    # where this inquiry's text came from, for upgrades (ask-tree)
-  template: https://gitlab.kuleuven.be/r2d/collaboration/research-knowledge-tree
+  template: https://github.com/bonneted/research-knowledge-tree
   version: 2.0.0        # the template tag, and the rkt version to run

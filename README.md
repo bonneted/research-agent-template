@@ -2,51 +2,88 @@
 
 **Agents make rigour affordable.** Pre-registered protocols, verification on known cases, numbers that trace to their run, published negative results, adversarial review: research has long known what keeps it honest, and has rarely been able to pay for all of it. An AI agent can. This repository is a handful of rules that make an agent do research that way, and a small tool that checks them.
 
-The unit is an **inquiry**: one folder, one git repository, one research question, with its sources, a wiki the agent maintains, its findings and its code. Start with one. When a question proves too broad, an inquiry grows **sub-inquiries** for its parts (zoom in); when two inquiries turn out to answer parts of a bigger question, a new one **adopts** them (zoom out). The result is a **knowledge tree**: the broad question at the root, the narrow checks at the leaves, and knowledge flowing between them by explicit rules.
+The unit is an **inquiry**: one folder, one git repository, one research question. Start with one. When a question proves too broad, an inquiry grows **sub-inquiries** for its parts (zoom in); when two inquiries turn out to answer parts of a bigger question, a new one **adopts** them (zoom out). The result is a **knowledge tree**: the broad question at the root, the narrow checks at the leaves, and knowledge flowing between them by explicit rules.
 
 The ideas behind it are in the talk *Doing research with AI agents*: [slides (PDF)](talk/doing-research-with-ai-agents.pdf).
 
-## Start in five minutes
+## Inside an inquiry: sources, wiki, code
 
-1. Install [uv](https://docs.astral.sh/uv/), then the tool:
+```mermaid
+flowchart LR
+  S["<b>Sources</b><br/>references.bib · resources.yaml<br/>resources/ — the pool of PDFs, code, data"]
+  C["<b>Code</b><br/>phases/NN-slug/ — one folder per phase<br/>runs/ — outputs, out of git"]
+  W["<b>Wiki</b><br/>docs/wiki/ — index, concepts, sources, phases<br/>docs/findings/ — what is established"]
+  A(("Agent"))
+  S -- digest --> W
+  C -- update --> W
+  A -- reads index.md first --> W
+```
 
-   ```bash
-   uv tool install git+https://gitlab.kuleuven.be/r2d/collaboration/research-knowledge-tree.git@v2.0.0
-   ```
+Everything the agent knows is plain Markdown in the folder, read by you in [Obsidian](https://obsidian.md) and by the agent before it answers. Sources are digested into the wiki, one note per source stating what the inquiry takes from it; code changes update the wiki in the same turn; what a phase establishes becomes a **finding**, with its status and its evidence. You can switch model or harness and keep all of it.
 
-2. Make a folder an inquiry, and a git repository:
-
-   ```bash
-   mkdir beam-uq && cd beam-uq && git init
-   rkt init
-   ```
-
-3. Open it with your agent and say: *start the inquiry*. It interviews you on the question, its scope and what you already know, shows you the rules on one screen and asks whether to keep them, then digests your sources and proposes a first phase.
-4. Open the folder in [Obsidian](https://obsidian.md) to read the wiki as it grows.
-
-Day to day, the prompts are short: *"add 10.1016/j.jcp.2018.10.045 and digest it"*, *"plan phase 2"*, *"what does the wiki say about X?"*, *"publish the findings of phase 1"*, *"spawn a sub-inquiry for the sensitivity analysis"*. Type `/ask-tree` when you do not know what comes next.
-
-## An inquiry
+<details>
+<summary>Every file of an inquiry</summary>
 
 ```
 inquiry.yaml      the question, the parent, the sub-inquiries, the Zotero collection, the rule packs
 AGENTS.md         the agent's instructions: the tree, the twelve rules, a phase, the wiki
+CLAUDE.md         imports AGENTS.md, for Claude Code
 PLAN.md           the question, the rules as adjusted (and why), the protocol, the phases, the deviations
 GLOSSARY.md       this inquiry's terms
 references.bib    the documents, never written by hand     } the resource manifest:
 resources.yaml    code at a pinned commit, data and sha256 } rkt fetch fills resources/
 docs/
   wiki/           index.md (with the routes to the sub-inquiries), concepts/, sources/, phases/
-  findings/       one note per finding: status, evidence, how many attempts it took
+  findings/       one note per finding, and the finding format
   adr/            decisions
 rules/            rule packs: rigour, fe-simulation, ml-training, uq-reliability, literature-check
 phases/NN-slug/   one folder per phase: its code and config.yaml (explore or confirm, its level)
 inquiries/        sub-inquiries, each its own clone (out of git)
-resources/        the link to the pool of PDFs, code and data (out of git)
+resources/        the link to the pool (out of git)
 .agents/skills/   the kit's skills; .claude/skills links here
+.claude/settings.json   declares Matt Pocock's skills for Claude Code
 ```
 
-Everything the agent knows is plain Markdown in the folder, so you can switch model or harness and keep it: `AGENTS.md` is read by most harnesses (Claude Code reads it through `CLAUDE.md`), and the skills are plain Markdown recipes.
+</details>
+
+## Between inquiries: the tree
+
+```
+bicycle/                       why does a moving bicycle stay upright?
+├── inquiry.yaml               lists its sub-inquiries
+├── docs/wiki/index.md         routes: which child to dive into for what; open questions; out of scope
+└── inquiries/
+    ├── benchmark-model/       does our model reproduce the published benchmark bicycle?
+    │   └── inquiries/
+    │       └── speed-sweep/   at which speeds is the benchmark bicycle self-stable?
+    ├── gyroscopic/            how much does the spinning of the wheels contribute?
+    └── trail/                 how much does the steering geometry contribute?
+```
+
+- **Down**, a child receives its question and its parent's rules. It may tighten them, never loosen them, and reads its parent's notes by link, never by copy.
+- **Up**, a child gives findings only, one level at a time: the parent writes its own finding in its own terms, citing the child's at a commit. Detail stays at the level it belongs to.
+- **Across**, nothing: links go to the parent or a child, never to a sibling. A source two branches need is digested at their lowest common ancestor.
+- **Routing**: every index lists its children with what to dive into each for, the questions still open (*"how much does the rider's steering contribute?"*), and what is out of scope and why. Asked a broad question, the agent descends one index at a time.
+
+## Start in five minutes
+
+1. Install [uv](https://docs.astral.sh/uv/), then the tool:
+
+   ```bash
+   uv tool install git+https://github.com/bonneted/research-knowledge-tree@v2.0.0
+   ```
+
+2. Make a folder an inquiry, and a git repository:
+
+   ```bash
+   mkdir bicycle && cd bicycle && git init
+   rkt init
+   ```
+
+3. Open it with your agent and say: *start the inquiry: why does a moving bicycle stay upright?* It interviews you on the question, its scope and what you already know, shows you the rules on one screen and asks whether to keep them, then digests your sources and proposes a first phase.
+4. Open the folder in Obsidian to read the wiki as it grows.
+
+Day to day, the prompts are short: *"add 10.1126/science.1201959 and digest it"*, *"plan phase 1: reproduce the benchmark's stability speeds"*, *"what does the wiki say about trail?"*, *"publish the findings of phase 1"*, *"spawn a sub-inquiry for the gyroscopic effect"*. Type `/ask-tree` when you do not know what comes next.
 
 ## The rules
 
@@ -69,43 +106,45 @@ Twelve core rules, in every inquiry's `AGENTS.md`. **Fixed** ones are never set 
 
 Rule packs add rules for a kind of work. `rigour` turns rules 1 and 4 into mechanism: a stamp on every run, a frozen protocol, pinned conda environments, canary reruns.
 
+What the rules produce is a finding like this one, at the root of the tree above (illustrative):
+
+```markdown
+---
+status: hint        # its children's findings are hints: rule 11
+tried: 3            # explanations tested: wheel spin, trail, mass distribution (rule 10)
+evidence:
+  - kind: sub-inquiry
+    finding: https://github.com/you/gyroscopic/blob/8be41d0/docs/findings/the-model-stays-self-stable-without-wheel-spin.md
+    status: hint
+  - kind: sub-inquiry
+    finding: https://github.com/you/trail/blob/3f2a9c1/docs/findings/the-model-stays-self-stable-without-trail.md
+    status: hint
+---
+
+# Neither wheel spin nor trail alone keeps the benchmark bicycle upright
+
+**Scope.** The linearised benchmark model only; not yet validated against a ridden bicycle (rule 9).
+```
+
 ### Why these rules
 
 They are the standard countermeasures of the reproducibility literature, chosen for the biases an agent amplifies: an agent makes forty variants nearly free (rule 10), writes fluent citations it never read (rule 8), and agrees with whoever asks (rule 12). The frame is Ioannidis (2005), [*Why most published research findings are false*](https://doi.org/10.1371/journal.pmed.0020124), and Munafò et al. (2017), [*A manifesto for reproducible science*](https://doi.org/10.1038/s41562-016-0021); behind each rule are, among others, preregistration and HARKing (Nosek et al. 2018; Kerr 1998), verification and validation (Oberkampf & Roy 2010), leakage (Kapoor & Narayanan 2023), weak baselines (Lin 2019) and the file drawer (Rosenthal 1979). [docs/literature.md](docs/literature.md) maps every rule to its references, all checked against Crossref or arXiv. Rules 2 and 11 have no standard precedent: they are this template's own, and deserve the same scrutiny.
 
 ## Growing the tree
 
-```
-copv/                          root: how to design reliable pressure vessels?
-├── inquiry.yaml               lists its sub-inquiries
-├── docs/wiki/index.md         routes: which child to dive into for what; open lines; out of scope
-└── inquiries/
-    ├── burst-fdm/             does the fast model predict burst within 2 %?
-    │   └── inquiries/
-    │       └── dome-mesh/     is the dome mesh converged?
-    └── ring-validation/       does the ring model reproduce the tests?
-```
-
-- **Zoom in**: *"spawn a sub-inquiry for the dome mesh"* (`spawn`). The child is a clone in `inquiries/<name>/`, made from the kit, with its question, its parent and its Zotero subcollection; the parent's index gets its route.
-- **Zoom out**: `/adopt` in a parent puts an existing repository under it. To merge two repositories, `rkt init` a new root whose question both answer part of, then adopt each. A repository from before the kit is adopted too: the kit fills what is missing and keeps its files.
+- **Zoom in**: *"spawn a sub-inquiry for the gyroscopic effect"* (`spawn`). The child is a clone in `inquiries/<name>/`, made from the kit, with its question, its parent and its Zotero subcollection; the parent's index gets its route.
+- **Zoom out**: `/adopt` in a parent puts an existing repository under it. To merge two repositories, `rkt init` a new root whose question both answer part of, then adopt each. A repository made without the kit is adopted too: the kit fills what is missing and keeps its files.
 - **Prune**: `/detach` lets a child stand alone again.
 
-How knowledge flows:
-
-- **Down**, a child receives its question and its parent's rules and packs. It may tighten them, never loosen them, and reads its parent's notes by link, never by copy.
-- **Up**, a child gives findings only, one level at a time: the parent writes its own finding in its own terms, citing the child's at a commit (`publish-finding`). Detail stays at the level it belongs to.
-- **Across**, nothing: links go to the parent or a child, never to a sibling. A source two branches need is digested at their lowest common ancestor.
-- **Routing**: every index lists its children with what to dive into each for, the sub-questions still open, and what is out of scope and why. Asked a broad question, the agent descends one index at a time.
-
-`rkt check --tree` holds the tree to these rules.
+`rkt check --tree` verifies what a machine can tell of the rules: links resolve and never go sideways, every note is reachable, routes match the sub-inquiries, findings carry their denominator and no parent finding is stronger than its children's. Whether a baseline was competent is the reviewer's to judge, and yours.
 
 ## Sources and Zotero
 
-`references.bib` and a pool of files are the contract; Zotero is the recommended way to keep them, not a requirement. The pool is one folder per machine, shared by every tree, outside git: `~/research-pool` unless the configuration or `RKT_POOL` says otherwise. Each inquiry's `resources/` links to it, with `papers/<citekey>.pdf`, `code/<name>/` and `data/<name>`.
+`references.bib` and a pool of files are the contract; Zotero is the recommended way to keep them, not a requirement. The pool is one folder per machine, shared by every tree, outside git: `~/research-pool` unless the configuration's `pool` or `RKT_POOL` says otherwise. Each inquiry's `resources/` links to it, with `papers/<citekey>.pdf`, `code/<name>/` and `data/<name>`.
 
 **Without Zotero (two minutes).** Leave `zotero_collection` out of `inquiry.yaml`. `rkt refs add <DOI | arXiv id | URL>` writes the entry into `references.bib` from Crossref, DataCite or arXiv; `rkt fetch` takes the PDF from arXiv or Unpaywall (give an `email` in the configuration) or lists what to drop into the pool. A `.bib` exported from any reference manager works too.
 
-**With Zotero (ten minutes).** Collections mirror the tree: `copv`, `copv/burst-fdm`, …
+**With Zotero (ten minutes).** Collections mirror the tree: `bicycle`, `bicycle/gyroscopic`, …
 
 1. In Zotero, [create an API key](https://www.zotero.org/settings/keys) with write access, and note your library (`users/<id>`, or `groups/<id>`).
 2. Install [Better BibTeX](https://retorque.re/zotero-better-bibtex/) for citekeys, and [ZotMoov](https://github.com/wileyyugioh/zotmoov) to keep attachments in one folder of your own (a synced drive works). Set Zotero's *Linked Attachment Base Directory* (Settings, Advanced, Files and Folders) to that folder, so the paths Zotero records are portable.
@@ -120,7 +159,7 @@ How knowledge flows:
    email: you@example.org            # for Unpaywall
    ```
 
-4. Set `zotero_collection` in `inquiry.yaml` (`copv/burst-fdm`). Then `rkt refs add <id>` files the item in that collection and regenerates `references.bib`, `rkt refs pull` does it after you edit in Zotero, and `rkt fetch --tree` pulls every bibliography of the tree and copies each PDF into the pool under its citekey.
+4. Set `zotero_collection` in `inquiry.yaml` (`bicycle/gyroscopic`). Then `rkt refs add <id>` files the item in that collection and regenerates `references.bib`, `rkt refs pull` does it after you edit in Zotero, and `rkt fetch --tree` pulls every bibliography of the tree and copies each PDF into the pool under its citekey.
 
 A machine without the Zotero app (a workstation) needs only the API key and the synced ZotMoov folder: the Web API gives each attachment's record, and `rkt` reads the file from the folder. Under WSL, the Zotero app on Windows answers `zotero_local` only with WSL's mirrored networking.
 
@@ -140,16 +179,6 @@ A machine without the Zotero app (a workstation) needs only the API key and the 
 - **Other harnesses** (Codex, Gemini CLI, OpenCode, …) read `AGENTS.md`; point them at `.agents/skills/`, and install Matt Pocock's skills as their README says.
 - **Windows** without admin rights: `rkt` makes folder links as junctions.
 - **Confidential material** stays out of the inquiry's folder. If it sits elsewhere on the same machine, keep the agent from it with your harness's permission settings (in Claude Code, `permissions.deny` in your user or local settings).
-
-## Example: a 15-minute demo
-
-Monte Carlo vs polynomial chaos for the tip deflection of a cantilever beam, δ = PL³/(3EI), with E, I and P uncertain. There is a closed-form answer to check the agent against.
-
-1. `rkt init`, then: *start the inquiry: I want to compare Monte Carlo and polynomial chaos expansion for the tip deflection of a cantilever beam with uncertain E, I and P.* Keep the rules; take the `uq-reliability` pack.
-2. *Find about five key papers on PCE for uncertainty propagation and Sobol sensitivity (Xiu & Karniadakis 2002, Sudret 2008, Blatman & Sudret 2011…) and add them.* Then `rkt fetch`, and *digest the new papers.*
-3. *Plan phase 1, scout: implement MC and PCE with chaospy, check mean and variance against the analytical result.* Then *run it and write the phase note.*
-4. *Publish the findings of phase 1.* Open the folder in Obsidian: the index, a digest, a finding with its denominator.
-5. *Spawn a sub-inquiry for the Sobol indices*: the tree has two levels.
 
 ## Limits
 
