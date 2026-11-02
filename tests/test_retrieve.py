@@ -361,3 +361,41 @@ def test_local_zotero_is_configured_before_the_web_api(
     assert problems == []
     assert [source.name for source in sources] == ["Zotero (local)", "Zotero", "arXiv"]
     assert sources[0].base == Path("~/ZotMoov")
+
+
+def test_web_zotero_reads_a_linked_file_from_a_synced_folder(tmp_path: Path) -> None:
+    # The laptop recorded a portable path under its linked attachment base folder; the
+    # workstation has no Zotero app, only the folder synced over a drive.
+    synced = tmp_path / "OneDrive" / "ZotMoov"
+    synced.mkdir(parents=True)
+    (synced / "Raissi - 2019.pdf").write_bytes(PDF)
+    api = LocalApi(pdf_attachment(linkMode="linked_file", path="attachments:Raissi - 2019.pdf"))
+
+    source = retrieve.Zotero("users/1", "key", api, base=synced)
+
+    assert source.retrieve(retrieve.Entry("raissi2019")) == PDF
+
+
+def test_web_zotero_finds_a_linked_file_recorded_on_another_machine(tmp_path: Path) -> None:
+    synced = tmp_path / "ZotMoov"
+    (synced / "PINNs").mkdir(parents=True)
+    (synced / "PINNs" / "Raissi - 2019.pdf").write_bytes(PDF)
+    recorded = r"C:\Users\me\OneDrive\ZotMoov\PINNs\Raissi - 2019.pdf"
+    api = LocalApi(pdf_attachment(linkMode="linked_file", path=recorded))
+
+    found = retrieve.Zotero("users/1", "key", api, base=synced)
+    without = retrieve.Zotero("users/1", "key", api)
+
+    assert found.retrieve(retrieve.Entry("raissi2019")) == PDF
+    assert without.retrieve(retrieve.Entry("raissi2019")) is None
+
+
+def test_the_synced_folder_serves_the_web_api_too(tmp_path: Path) -> None:
+    config = tmp_path / "config" / "rkt" / "config.yaml"
+    config.parent.mkdir(parents=True)
+    config.write_text("zotero_base: ~/ZotMoov\nzotero:\n  library: users/1\n  api_key: k\n")
+
+    sources, _ = retrieve.configured()
+
+    assert [source.name for source in sources] == ["Zotero", "arXiv"]
+    assert sources[0].base == Path("~/ZotMoov").expanduser()

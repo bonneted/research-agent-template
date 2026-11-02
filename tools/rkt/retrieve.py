@@ -10,7 +10,8 @@ Their configuration is the user's `$XDG_CONFIG_HOME/rkt/config.yaml` (by default
     pool: ~/research-pool        # the pool (see `pool`); RKT_POOL overrides it
     pdf_folder: ~/Zotero/pdfs    # holds <citekey>.pdf
     zotero_local: true           # ask the Zotero app (or the URL of its local API)
-    zotero_base: ~/ZotMoov       # the linked attachment base folder, ZotMoov's
+    zotero_base: ~/ZotMoov       # ZotMoov's folder: the linked attachment base folder,
+                                 # or its copy synced over a drive (no Zotero app needed)
     zotero_storage: ~/Zotero/storage
     email: you@example.org       # Unpaywall asks for one; without it, it is skipped
     zotero:
@@ -138,6 +139,52 @@ class Folder:
         return body if _is_pdf(body) else None
 
 
+# A Windows path, as Zotero on Windows records it: read from WSL at /mnt/<drive>/.
+_WINDOWS_PATH = re.compile(r"^([A-Za-z]):[\\/](.*)$")
+LOCAL_API = "http://localhost:23119/api/users/0"
+
+
+def local_path(recorded: str) -> Path:
+    """A path Zotero recorded, as this machine reads it: a Windows path under WSL's /mnt."""
+    match = _WINDOWS_PATH.match(recorded)
+    if match and os.name != "nt":
+        rest = match.group(2).replace("\\", "/")
+        return Path("/mnt") / match.group(1).lower() / rest
+    return Path(recorded).expanduser()
+
+
+def linked_file(data: dict, base: Path | None) -> Path | None:
+    """Where a linked file Zotero recorded is on this machine, or None if it is not here.
+
+    A path relative to the linked attachment base folder (`attachments:…`) is read
+    under `base`; an absolute one where it is, or else, recorded on another machine,
+    by its file name under `base`, such as a ZotMoov folder synced over a drive.
+    """
+    recorded = data.get("path") or ""
+    if not recorded:
+        return None
+    if recorded.startswith("attachments:"):
+        candidates = [base / recorded.removeprefix("attachments:")] if base else []
+    else:
+        name = recorded.replace("\\", "/").rsplit("/", 1)[-1]
+        candidates = [local_path(recorded)]
+        if base is not None:
+            candidates.append(base / name)
+            candidates += sorted(base.rglob(name)) if base.is_dir() else []
+    for path in candidates:
+        if path.expanduser().is_file():
+            return path.expanduser()
+    return None
+
+
+def _read_pdf(path: Path | None) -> bytes | None:
+    try:
+        body = path.read_bytes() if path else None
+    except OSError:
+        return None
+    return body if body and _is_pdf(body) else None
+
+
 @dataclass
 class Zotero:
     """The PDF attached to the item with the citekey in a Zotero library, by its Web API."""
@@ -145,6 +192,9 @@ class Zotero:
     library: str
     api_key: str
     get: Get = _get
+    # Where linked files are on this machine (a ZotMoov folder synced over a drive):
+    # their records sync to the Web API, their files never do.
+    base: Path | None = None
     name: str = "Zotero"
 
     def _ask(self, path: str) -> bytes | None:
@@ -180,25 +230,16 @@ class Zotero:
         ]
         for item in items:
             for child in self._json(f"items/{item['key']}/children?format=json"):
-                if child.get("data", {}).get("contentType") == "application/pdf":
+                data = child.get("data", {})
+                if data.get("contentType") != "application/pdf":
+                    continue
+                if data.get("linkMode") == "linked_file":
+                    body = _read_pdf(linked_file(data, self.base))
+                else:
                     body = self._file(child["key"])
-                    if body and _is_pdf(body):
-                        return body
+                if body and _is_pdf(body):
+                    return body
         return None
-
-
-# A Windows path, as Zotero on Windows records it: read from WSL at /mnt/<drive>/.
-_WINDOWS_PATH = re.compile(r"^([A-Za-z]):[\\/](.*)$")
-LOCAL_API = "http://localhost:23119/api/users/0"
-
-
-def local_path(recorded: str) -> Path:
-    """A path Zotero recorded, as this machine reads it: a Windows path under WSL's /mnt."""
-    match = _WINDOWS_PATH.match(recorded)
-    if match and os.name != "nt":
-        rest = match.group(2).replace("\\", "/")
-        return Path("/mnt") / match.group(1).lower() / rest
-    return Path(recorded).expanduser()
 
 
 @dataclass
@@ -229,13 +270,8 @@ class ZoteroLocal:
 
     def _path(self, child: dict) -> Path | None:
         data = child.get("data", {})
-        recorded = data.get("path") or ""
         if data.get("linkMode") == "linked_file":
-            if recorded.startswith("attachments:"):
-                if self.base is None:
-                    return None
-                return self.base.expanduser() / recorded.removeprefix("attachments:")
-            return local_path(recorded) if recorded else None
+            return linked_file(data, self.base.expanduser() if self.base else None)
         if data.get("filename"):
             return self.storage.expanduser() / child["key"] / data["filename"]
         return None
@@ -253,12 +289,7 @@ class ZoteroLocal:
             for child in self._json(f"items/{item['key']}/children?format=json"):
                 if child.get("data", {}).get("contentType") != "application/pdf":
                     continue
-                path = self._path(child)
-                try:
-                    body = path.read_bytes() if path else None
-                except OSError:
-                    continue
-                if body and _is_pdf(body):
+                if body := _read_pdf(self._path(child)):
                     return body
         return None
 
@@ -362,7 +393,15 @@ def configured(get: Get = _get) -> tuple[list[Retriever], list[str]]:
             and isinstance(zotero.get("library"), str)
             and isinstance(zotero.get("api_key"), str)
         ):
-            sources.append(Zotero(zotero["library"].strip("/"), zotero["api_key"], get))
+            base = config.get("zotero_base")
+            sources.append(
+                Zotero(
+                    zotero["library"].strip("/"),
+                    zotero["api_key"],
+                    get,
+                    Path(str(base)).expanduser() if base else None,
+                )
+            )
         else:
             problems.append(f"{path}: zotero needs a library and an api_key")
     sources.append(Arxiv(get))
