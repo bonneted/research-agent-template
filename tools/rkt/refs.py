@@ -155,3 +155,58 @@ def add(
         lines = [f"{name}: added {key}"]
     pulled, ok = pull(inquiry, library)
     return lines + pulled + [f"{name}: run `rkt fetch` to retrieve its PDF"], ok
+
+
+BIB_ONLY_HEADER = [
+    "Written by `rkt refs add` from Crossref, DataCite or arXiv: this inquiry has no",
+    "Zotero collection. Add a reference with `rkt refs add`, never here.",
+]
+
+
+def _named(identifier: lookup.Identifier, entry: retrieve.Entry) -> bool:
+    """Whether a bibliography entry is the reference `identifier` names."""
+    value = identifier.value.lower()
+    if identifier.kind == "arxiv":
+        return (entry.arxiv or "").lower().split("v")[0] == value.split("v")[0]
+    return (entry.doi or "").lower() == value
+
+
+def add_to_bibliography(
+    inquiry: Inquiry, identifier: lookup.Identifier, send: zotero.Send = zotero.send
+) -> tuple[list[str], bool]:
+    """Add the reference `identifier` names to the inquiry's `references.bib` itself, for
+    an inquiry with no Zotero collection.
+
+    Returns the report lines and success.
+    """
+    name = inquiry.label
+    bibliography = inquiry.path / resources.BIBLIOGRAPHY
+    text = bibliography.read_text(encoding="utf-8") if bibliography.is_file() else ""
+    entries = retrieve.entries(text)
+    for key, entry in entries.items():
+        if _named(identifier, entry):
+            return [f"{name}: {key} is already in {resources.BIBLIOGRAPHY}"], True
+    try:
+        data = lookup.item(identifier, send)
+    except lookup.LookupFailed as error:
+        return [f"{name}: FAILED: {error}"], False
+    base = zotero.made_citekey(data)
+    key = next(
+        (
+            base + suffix
+            for suffix in ["", *"abcdefghijklmnopqrstuvwxyz"]
+            if base + suffix not in entries
+        ),
+        None,
+    )
+    if key is None:
+        return [f"{name}: FAILED: no free citekey from {base}"], False
+    if not text.strip():
+        text = "".join(f"% {line}\n" for line in BIB_ONLY_HEADER)
+    bibliography.write_text(
+        text.rstrip("\n") + "\n\n" + bibtex.entry(key, data), encoding="utf-8"
+    )
+    return [
+        f"{name}: added {key}",
+        f"{name}: run `rkt fetch` to retrieve its PDF",
+    ], True

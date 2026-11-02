@@ -1,13 +1,17 @@
 """Retrieval of a document's PDF from the web, for `rkt fetch`.
 
 Each source answers one question: given a bibliography entry, here are its PDF's bytes,
-or None. The sources are tried in order: a local folder of PDFs named by citekey, then
-the Zotero Web API, when the user configured them, then arXiv, then Unpaywall by DOI.
+or None. The sources are tried in order: a local folder of PDFs named by citekey, the
+Zotero app's local API (which finds ZotMoov's linked files), the Zotero Web API, when
+the user configured them, then arXiv, then Unpaywall by DOI.
 Their configuration is the user's `$XDG_CONFIG_HOME/rkt/config.yaml` (by default
 `~/.config/rkt/`), never in git:
 
     pool: ~/research-pool        # the pool (see `pool`); RKT_POOL overrides it
     pdf_folder: ~/Zotero/pdfs    # holds <citekey>.pdf
+    zotero_local: true           # ask the Zotero app (or the URL of its local API)
+    zotero_base: ~/ZotMoov       # the linked attachment base folder, ZotMoov's
+    zotero_storage: ~/Zotero/storage
     email: you@example.org       # Unpaywall asks for one; without it, it is skipped
     zotero:
       library: groups/1234567    # or users/<id>
@@ -84,7 +88,9 @@ def entries(text: str) -> dict[str, Entry]:
         arxiv = None
         if fields.get("archiveprefix", "").lower() == "arxiv" and fields.get("eprint"):
             arxiv = fields["eprint"]
-        elif (match := _ARXIV_DOI.fullmatch(fields.get("doi", ""))) or (match := _ARXIV_URL.search(fields.get("url", ""))):
+        elif (match := _ARXIV_DOI.fullmatch(fields.get("doi", ""))) or (
+            match := _ARXIV_URL.search(fields.get("url", ""))
+        ):
             arxiv = match.group(1)
         found[key] = Entry(key, fields.get("doi") or None, arxiv)
     return found
@@ -181,6 +187,82 @@ class Zotero:
         return None
 
 
+# A Windows path, as Zotero on Windows records it: read from WSL at /mnt/<drive>/.
+_WINDOWS_PATH = re.compile(r"^([A-Za-z]):[\\/](.*)$")
+LOCAL_API = "http://localhost:23119/api/users/0"
+
+
+def local_path(recorded: str) -> Path:
+    """A path Zotero recorded, as this machine reads it: a Windows path under WSL's /mnt."""
+    match = _WINDOWS_PATH.match(recorded)
+    if match and os.name != "nt":
+        rest = match.group(2).replace("\\", "/")
+        return Path("/mnt") / match.group(1).lower() / rest
+    return Path(recorded).expanduser()
+
+
+@dataclass
+class ZoteroLocal:
+    """The PDF of the item with the citekey in the Zotero desktop app, by its local API.
+
+    The API (Zotero 7: Settings, Advanced, "Allow other applications on this computer to
+    communicate with Zotero") gives the attachment; its file is read from the disk. A
+    linked file, as ZotMoov leaves it, is at its recorded path, or under the linked
+    attachment base folder (`base`) when the path starts with `attachments:`; a stored
+    file is in Zotero's `storage` folder, under the attachment's key.
+    """
+
+    url: str = LOCAL_API
+    base: Path | None = None
+    storage: Path = Path("~/Zotero/storage")
+    get: Get = _get
+    name: str = "Zotero (local)"
+
+    def _json(self, path: str) -> list[dict]:
+        body = _ask(self.get, f"{self.url}/{path}")
+        try:
+            return json.loads(body) if body else []
+        except ValueError as error:
+            raise RetrievalError(
+                f"Zotero's local API answered {path} with no JSON"
+            ) from error
+
+    def _path(self, child: dict) -> Path | None:
+        data = child.get("data", {})
+        recorded = data.get("path") or ""
+        if data.get("linkMode") == "linked_file":
+            if recorded.startswith("attachments:"):
+                if self.base is None:
+                    return None
+                return self.base.expanduser() / recorded.removeprefix("attachments:")
+            return local_path(recorded) if recorded else None
+        if data.get("filename"):
+            return self.storage.expanduser() / child["key"] / data["filename"]
+        return None
+
+    def retrieve(self, entry: Entry) -> bytes | None:
+        query = urllib.parse.quote(entry.citekey)
+        items = [
+            item
+            for item in self._json(f"items?q={query}&qmode=everything&format=json")
+            if item.get("data", {}).get("citationKey") == entry.citekey
+            or f"Citation Key: {entry.citekey}"
+            in item.get("data", {}).get("extra", "").splitlines()
+        ]
+        for item in items:
+            for child in self._json(f"items/{item['key']}/children?format=json"):
+                if child.get("data", {}).get("contentType") != "application/pdf":
+                    continue
+                path = self._path(child)
+                try:
+                    body = path.read_bytes() if path else None
+                except OSError:
+                    continue
+                if body and _is_pdf(body):
+                    return body
+        return None
+
+
 @dataclass
 class Arxiv:
     """The PDF of a preprint, by its arXiv identifier."""
@@ -214,8 +296,12 @@ class Unpaywall:
         try:
             record = json.loads(body)
         except ValueError as error:
-            raise RetrievalError(f"Unpaywall answered {entry.doi} with no JSON") from error
-        locations = [record.get("best_oa_location")] + (record.get("oa_locations") or [])
+            raise RetrievalError(
+                f"Unpaywall answered {entry.doi} with no JSON"
+            ) from error
+        locations = [record.get("best_oa_location")] + (
+            record.get("oa_locations") or []
+        )
         for url in dict.fromkeys(
             location.get("url_for_pdf") for location in locations if location
         ):
@@ -258,6 +344,17 @@ def configured(get: Get = _get) -> tuple[list[Retriever], list[str]]:
             sources.append(Folder(path))
         else:
             problems.append(f"{path}: pdf_folder is not a folder")
+    local = config.get("zotero_local")
+    if local:
+        base = config.get("zotero_base")
+        sources.append(
+            ZoteroLocal(
+                local if isinstance(local, str) else LOCAL_API,
+                Path(str(base)) if base else None,
+                Path(str(config.get("zotero_storage") or "~/Zotero/storage")),
+                get,
+            )
+        )
     zotero = config.get("zotero")
     if zotero is not None:
         if (

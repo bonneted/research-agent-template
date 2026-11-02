@@ -4,7 +4,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from rkt import inquiry, kit, lookup, protocol, refs, zotero
+from rkt import inquiry, kit, lookup, protocol, refs, resources, zotero
 from rkt.check import check
 from rkt.fetch import fetch
 
@@ -24,14 +24,18 @@ def _parser() -> argparse.ArgumentParser:
         "link resources/ to it, and list what is missing",
     )
     fetcher.add_argument(
-        "--tree", action="store_true", help="also every sub-inquiry cloned below this one"
+        "--tree",
+        action="store_true",
+        help="also every sub-inquiry cloned below this one",
     )
     checker = commands.add_parser(
         "check",
         help="check links, indexes, routes, findings, citations and phases against the rules",
     )
     checker.add_argument(
-        "--tree", action="store_true", help="also every sub-inquiry cloned below this one"
+        "--tree",
+        action="store_true",
+        help="also every sub-inquiry cloned below this one",
     )
     freezer = commands.add_parser(
         "freeze", help="rigour pack: record the hash of a confirm phase's protocol"
@@ -64,9 +68,25 @@ def _refs(arguments: argparse.Namespace) -> tuple[list[str], bool]:
             identifier = lookup.identify(arguments.identifier)
         except lookup.Refused as error:
             return [f"{here.label}: FAILED: {error}"], False
+    if not here.zotero_collection:
+        # Bib-only: the inquiry keeps references.bib itself, through refs add.
+        if identifier is None:
+            return [
+                (
+                    f"{here.label}: no zotero_collection in {inquiry.FILENAME}: "
+                    f"{resources.BIBLIOGRAPHY} is kept by `rkt refs add`, nothing to pull"
+                )
+            ], True
+        return refs.add_to_bibliography(here, identifier)
     library, reason = zotero.configured()
     if library is None:
-        return [f"{here.label}: FAILED: {reason}"], False
+        return [
+            (
+                f"{here.label}: FAILED: {reason}; configure Zotero, or remove "
+                f"zotero_collection from {inquiry.FILENAME} to keep {resources.BIBLIOGRAPHY} "
+                "without it"
+            )
+        ], False
     try:
         if identifier is None:
             return refs.pull(here, library)

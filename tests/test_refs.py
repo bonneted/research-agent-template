@@ -5,7 +5,7 @@ only where no request goes out.
 """
 
 import pytest
-from conftest import Tree
+from conftest import Tree, write_yaml
 from fakes import Web
 from rkt import inquiry, lookup, refs, retrieve, zotero
 from rkt.fetch import fetch
@@ -552,3 +552,70 @@ def test_software_programmers_are_its_authors():
         ],
     }
     assert ("author", "Bleyer, Jeremy and Hale, Jack S.") in fields(data)
+
+
+def bib_only(tree: Tree) -> inquiry.Inquiry:
+    """The root inquiry without a Zotero collection: it keeps references.bib itself."""
+    write_yaml(tree.root / "inquiry.yaml", zotero_collection=None)
+    return member(tree)
+
+
+def test_add_without_a_collection_writes_the_entry_itself(synced: Tree, web: Web) -> None:
+    web.crossref["10.1016/j.jcp.2018.10.045"] = CROSSREF_RAISSI
+
+    lines, ok = refs.add_to_bibliography(
+        bib_only(synced), lookup.identify("10.1016/j.jcp.2018.10.045"), web
+    )
+
+    assert ok, lines
+    assert lines[0] == "demo: added raissi2019physics"
+    text = (synced.root / "references.bib").read_text()
+    assert text.startswith("% Written by `rkt refs add` from Crossref")
+    entry = retrieve.entries(text)["raissi2019physics"]
+    assert entry.doi == "10.1016/j.jcp.2018.10.045"
+
+
+def test_add_without_a_collection_finds_what_is_already_there(
+    synced: Tree, web: Web
+) -> None:
+    web.crossref["10.1016/j.jcp.2018.10.045"] = CROSSREF_RAISSI
+    here = bib_only(synced)
+    refs.add_to_bibliography(here, lookup.identify("10.1016/j.jcp.2018.10.045"), web)
+    before = (synced.root / "references.bib").read_text()
+
+    lines, ok = refs.add_to_bibliography(
+        here, lookup.identify("https://doi.org/10.1016/J.JCP.2018.10.045"), web
+    )
+
+    assert ok
+    assert lines == ["demo: raissi2019physics is already in references.bib"]
+    assert (synced.root / "references.bib").read_text() == before
+
+
+def test_add_without_a_collection_takes_a_free_citekey(synced: Tree, web: Web) -> None:
+    web.crossref["10.1016/j.jcp.2018.10.045"] = CROSSREF_RAISSI
+    web.crossref["10.1000/other"] = {**CROSSREF_RAISSI, "DOI": "10.1000/other"}
+    here = bib_only(synced)
+    refs.add_to_bibliography(here, lookup.identify("10.1016/j.jcp.2018.10.045"), web)
+
+    lines, _ = refs.add_to_bibliography(here, lookup.identify("10.1000/other"), web)
+
+    assert lines[0] == "demo: added raissi2019physicsa"
+
+
+def test_pull_without_a_collection_has_nothing_to_do(synced: Tree) -> None:
+    bib_only(synced)
+
+    result = synced.run("refs", "pull")
+
+    assert result.returncode == 0
+    assert "no zotero_collection in inquiry.yaml" in result.stdout
+
+
+def test_a_collection_without_zotero_configured_says_how_to_go_without(
+    synced: Tree,
+) -> None:
+    result = synced.run("refs", "add", "10.1000/x")
+
+    assert result.returncode == 1
+    assert "or remove zotero_collection from inquiry.yaml" in result.stdout

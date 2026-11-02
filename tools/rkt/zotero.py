@@ -51,7 +51,7 @@ def send(
         url,
         data=body,
         method=method,
-        headers={"User-Agent": "research-ws", **headers},
+        headers={"User-Agent": "research-knowledge-tree (rkt)", **headers},
     )
     try:
         with urllib.request.urlopen(request, timeout=30) as response:

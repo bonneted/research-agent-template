@@ -279,3 +279,85 @@ def test_a_missing_pdf_folder_is_a_problem_not_a_source(tmp_path: Path) -> None:
 
     assert [source.name for source in sources] == ["arXiv"]
     assert problems and "nowhere" in problems[0]
+
+
+class LocalApi:
+    """Zotero's local API for one item with a PDF attachment, as `get` sees it."""
+
+    def __init__(self, attachment: dict) -> None:
+        self.attachment = attachment
+
+    def __call__(self, url: str, headers: dict) -> bytes:
+        if "/children" in url:
+            return json.dumps([self.attachment]).encode()
+        return json.dumps(
+            [{"key": "ITEM", "data": {"citationKey": "raissi2019"}},
+             {"key": "OTHER", "data": {"citationKey": "someone2020"}}]
+        ).encode()
+
+
+def pdf_attachment(**data: str) -> dict:
+    return {"key": "ATT1", "data": {"contentType": "application/pdf", **data}}
+
+
+def test_local_zotero_reads_a_zotmoov_linked_file(tmp_path: Path) -> None:
+    moved = tmp_path / "ZotMoov" / "Raissi et al. - 2019 - PINNs.pdf"
+    moved.parent.mkdir()
+    moved.write_bytes(PDF)
+    api = LocalApi(pdf_attachment(linkMode="linked_file", path=str(moved)))
+
+    body = retrieve.ZoteroLocal(get=api).retrieve(retrieve.Entry("raissi2019"))
+
+    assert body == PDF
+
+
+def test_local_zotero_resolves_the_linked_attachment_base_folder(tmp_path: Path) -> None:
+    (tmp_path / "papers").mkdir()
+    (tmp_path / "papers" / "raissi.pdf").write_bytes(PDF)
+    api = LocalApi(pdf_attachment(linkMode="linked_file", path="attachments:papers/raissi.pdf"))
+
+    source = retrieve.ZoteroLocal(base=tmp_path, get=api)
+
+    assert source.retrieve(retrieve.Entry("raissi2019")) == PDF
+    assert retrieve.ZoteroLocal(get=api).retrieve(retrieve.Entry("raissi2019")) is None
+
+
+def test_local_zotero_reads_a_stored_file(tmp_path: Path) -> None:
+    (tmp_path / "ATT1").mkdir()
+    (tmp_path / "ATT1" / "raissi.pdf").write_bytes(PDF)
+    api = LocalApi(pdf_attachment(linkMode="imported_file", filename="raissi.pdf"))
+
+    body = retrieve.ZoteroLocal(storage=tmp_path, get=api).retrieve(retrieve.Entry("raissi2019"))
+
+    assert body == PDF
+
+
+def test_local_zotero_not_running_falls_through(tmp_path: Path) -> None:
+    def refused(url: str, headers: dict) -> bytes:
+        raise OSError("connection refused")
+
+    with pytest.raises(retrieve.RetrievalError):
+        retrieve.ZoteroLocal(get=refused).retrieve(retrieve.Entry("raissi2019"))
+
+
+def test_a_windows_path_is_read_under_mnt_from_wsl() -> None:
+    if os.name == "nt":
+        pytest.skip("only under WSL or Linux")
+    assert retrieve.local_path(r"D:\Zotero\ZotMoov\a b.pdf") == Path("/mnt/d/Zotero/ZotMoov/a b.pdf")
+
+
+def test_local_zotero_is_configured_before_the_web_api(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config = tmp_path / "config" / "rkt" / "config.yaml"
+    config.parent.mkdir(parents=True)
+    config.write_text(
+        "zotero_local: true\nzotero_base: ~/ZotMoov\n"
+        "zotero:\n  library: users/1\n  api_key: k\n"
+    )
+
+    sources, problems = retrieve.configured()
+
+    assert problems == []
+    assert [source.name for source in sources] == ["Zotero (local)", "Zotero", "arXiv"]
+    assert sources[0].base == Path("~/ZotMoov")
