@@ -248,17 +248,6 @@ def test_a_sub_inquiry_that_drops_an_inherited_rule_pack_fails(tree: Tree) -> No
     ]
 
 
-def test_a_sub_inquiry_that_drops_inherited_off_limits_fails(tree: Tree) -> None:
-    (tree.root / ".off-limits.yaml").write_text("paths: [confidential/]\n")
-
-    found = failures(tree)
-
-    assert (
-        "demo/framework: FAILED: .off-limits.yaml lacks the parent's off-limits path "
-        "confidential/: a sub-inquiry keeps every one it inherits"
-    ) in found
-
-
 @pytest.mark.parametrize(
     ("config", "message"),
     [

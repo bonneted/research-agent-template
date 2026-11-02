@@ -16,7 +16,7 @@ from pathlib import Path
 import yaml
 
 from rkt import inquiry as inquiries
-from rkt import offlimits, protocol, resources
+from rkt import protocol, resources
 from rkt.git import GitError, git
 from rkt.inquiry import CHILDREN, Inquiry
 
@@ -689,30 +689,6 @@ def _environments(folder: Path, report: Report) -> None:
             )
 
 
-# Off-limits material: inherited whole, and guarded where sessions start.
-
-
-def hook() -> Path:
-    """The off-limits hook script the guards point to."""
-    return Path(__file__).with_name("guard_off_limits.py")
-
-
-def _off_limits(inquiry: Inquiry, report: Report) -> None:
-    try:
-        own = inquiries.off_limits(inquiry.path)
-        if inquiry.parent_path is not None:
-            inherited = inquiries.off_limits(inquiry.parent_path)
-            for missing in own.covers(inherited):
-                report.failures.append(
-                    f"{inquiries.OFF_LIMITS} lacks the parent's off-limits {missing}: "
-                    "a sub-inquiry keeps every one it inherits"
-                )
-    except inquiries.InquiryError as error:
-        report.failures.append(str(error))
-        return
-    report.failures += offlimits.drift(inquiry.path, own, hook())
-
-
 def check_inquiry(inquiry: Inquiry) -> Report:
     """The problems of one inquiry."""
     report = Report([], [])
@@ -726,7 +702,6 @@ def check_inquiry(inquiry: Inquiry) -> Report:
     _rule_packs(inquiry, report)
     if "rigour" in inquiry.rule_packs:
         _environments(inquiry.path, report)
-    _off_limits(inquiry, report)
     return report
 
 

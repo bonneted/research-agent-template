@@ -2,7 +2,7 @@
 
 The product is the rules: how inquiries relate and what makes their knowledge grounded. Mechanisms an agent can rebuild from a rule do not belong in the template; a beginner's one inquiry has no code of its own.
 
-The **text** — `AGENTS.md`, the skills, the rule packs — is copied into each inquiry, because the agent must read it and the user may tighten it; spawn copies the parent's, and `inquiry.yaml` records the template tag it came from. The **tools** — `refs`, `fetch`, `check`, the off-limits hook — are one `uv tool`, pinned in `inquiry.yaml` and run with `uvx`, so no Python is copied down the tree to drift.
+The **text** — `AGENTS.md`, the skills, the rule packs — is copied into each inquiry, because the agent must read it and the user may tighten it; spawn copies the parent's, and `inquiry.yaml` records the template tag it came from. The **tools** — `refs`, `fetch`, `check` — are one `uv tool`, pinned in `inquiry.yaml` and run with `uvx`, so no Python is copied down the tree to drift.
 
 ## Considered options
 

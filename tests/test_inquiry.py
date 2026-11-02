@@ -60,25 +60,3 @@ def test_a_malformed_inquiry_yaml_is_refused(
 
     with pytest.raises(inquiry.InquiryError, match=message):
         inquiry.load(tree.root)
-
-
-def test_off_limits_are_read_and_compared(tmp_path: Path) -> None:
-    (tmp_path / ".off-limits.yaml").write_text(
-        "paths: [confidential/]\n"
-        "patterns: [{pattern: 'partner\\.md', what: the partner's notes}]\n"
-        "deny_connectors: [mcp__claude_ai_Gmail]\n"
-    )
-    child = tmp_path / "child"
-    child.mkdir()
-    (child / ".off-limits.yaml").write_text("paths: [confidential/, drafts/]\n")
-
-    parent_list = inquiry.off_limits(tmp_path)
-    child_list = inquiry.off_limits(child)
-
-    assert parent_list.patterns[0].what == "the partner's notes"
-    assert child_list.covers(parent_list) == [
-        "pattern partner\\.md",
-        "connector mcp__claude_ai_Gmail",
-    ]
-    assert parent_list.covers(child_list) == ["path drafts/"]
-    assert not inquiry.off_limits(tmp_path / "nowhere")

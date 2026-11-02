@@ -12,7 +12,7 @@ What this inquiry sets out to show, fixed before the runs that show it. The rule
 
 ## Rules
 
-The core rules hold as written unless this section says otherwise. A rule inherited from the parent may be tightened here, never loosened. Fixed rules (4, 8, 10, 11, 12, off-limits) are never set aside.
+The core rules hold as written unless this section says otherwise. A rule inherited from the parent may be tightened here, never loosened. Fixed rules (4, 8, 10, 11, 12) are never set aside.
 
 <!-- - Rule 7 set aside: a literature review compares no methods.
      - Rule 6 tightened: at least ten seeds per headline number. -->

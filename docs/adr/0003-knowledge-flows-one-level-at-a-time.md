@@ -1,6 +1,6 @@
 # Knowledge flows one level at a time: down by link, up by finding
 
-**Down**, a child receives its question and the constraints it inherits: the core rules as its parent tightened them, rule packs, off-limits material, pinned libraries. It may tighten them, never loosen them. Its parent's knowledge it reads by link, never by copy.
+**Down**, a child receives its question and the constraints it inherits: the core rules as its parent tightened them, rule packs, pinned libraries. It may tighten them, never loosen them. Its parent's knowledge it reads by link, never by copy.
 
 **Up**, a child gives its parent findings, and nothing else, through `publish-finding`. The parent's own findings speak its question's terms and cite the child's as evidence of kind `sub-inquiry`. A grandchild's finding reaches the root only through a synthesis at each level, which decides what the level above needs. Detail stays at the level it belongs to.
 

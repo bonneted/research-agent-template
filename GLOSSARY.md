@@ -71,7 +71,7 @@ _Avoid_: summary
 One of the twelve rules in every inquiry's `AGENTS.md`.
 
 **Fixed rule**:
-A core rule never set aside: every number traces, source claims grounded, negatives and the denominator published, the tree never strengthens a claim, the human confirms, and off-limits material.
+A core rule never set aside: every number traces, source claims grounded, negatives and the denominator published, the tree never strengthens a claim, the human confirms.
 
 **Adjustable rule**:
 A core rule an inquiry may set aside, with its reason in `PLAN.md`.
@@ -81,9 +81,6 @@ Rules for one kind of work (`rigour`, `fe-simulation`, …), selected by an inqu
 
 **Guardian**:
 The agent's duty to name the rule a request would break, the bias it guards against and the compliant alternative, before acting.
-
-**Off-limits material**:
-Documents, data or connectors an agent must never read, listed out of git in `.off-limits.yaml` and inherited down the tree.
 
 ### The kit
 

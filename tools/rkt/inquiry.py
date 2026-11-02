@@ -11,7 +11,6 @@ from pathlib import Path
 import yaml
 
 FILENAME = "inquiry.yaml"
-OFF_LIMITS = ".off-limits.yaml"
 CHILDREN = "inquiries"
 
 NAME = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
@@ -27,44 +26,6 @@ class Child:
 
     name: str
     url: str
-
-
-@dataclass(frozen=True)
-class Blocked:
-    """A regular expression an agent's tool call may not match, and what it guards."""
-
-    pattern: str
-    what: str
-
-
-@dataclass(frozen=True)
-class OffLimits:
-    """Material an agent never reads (see `offlimits`); empty when the inquiry has none."""
-
-    # Globs: relative (`confidential/`, `**/resources/secret/`), `~/`-relative or absolute.
-    paths: tuple[str, ...] = ()
-    patterns: tuple[Blocked, ...] = ()
-    deny_connectors: tuple[str, ...] = ()
-
-    def __bool__(self) -> bool:
-        return bool(self.paths or self.patterns or self.deny_connectors)
-
-    def covers(self, other: "OffLimits") -> list[str]:
-        """What `other` lists that this does not: empty when this is a superset."""
-        mine = {blocked.pattern for blocked in self.patterns}
-        return [
-            *(f"path {path}" for path in other.paths if path not in self.paths),
-            *(
-                f"pattern {blocked.pattern}"
-                for blocked in other.patterns
-                if blocked.pattern not in mine
-            ),
-            *(
-                f"connector {name}"
-                for name in other.deny_connectors
-                if name not in self.deny_connectors
-            ),
-        ]
 
 
 @dataclass(frozen=True)
@@ -182,48 +143,3 @@ def tree(top: Inquiry) -> list[Inquiry]:
         if (folder / FILENAME).is_file():
             found += tree(load(folder, f"{top.label}/{child.name}"))
     return found
-
-
-def _strings(path: Path, data: dict, key: str) -> tuple[str, ...]:
-    values = data.get(key) or []
-    if not isinstance(values, list) or not all(
-        isinstance(value, str) and value for value in values
-    ):
-        raise InquiryError(f"{path}: {key} must be a list of strings")
-    return tuple(values)
-
-
-def off_limits(folder: Path) -> OffLimits:
-    """The off-limits material `.off-limits.yaml` lists at `folder`; empty if it has none."""
-    path = folder / OFF_LIMITS
-    if not path.is_file():
-        return OffLimits()
-    try:
-        data = yaml.safe_load(path.read_text(encoding="utf-8"))
-    except (OSError, yaml.YAMLError) as error:
-        raise InquiryError(f"{path}: {error}") from error
-    if data is None:
-        return OffLimits()
-    if not isinstance(data, dict):
-        raise InquiryError(f"{path}: expected a mapping")
-    if unknown := sorted(set(data) - {"paths", "patterns", "deny_connectors"}):
-        raise InquiryError(f"{path}: unknown keys: {', '.join(unknown)}")
-    patterns = []
-    for index, entry in enumerate(data.get("patterns") or []):
-        # A pattern is a regular expression, or one with what it guards.
-        if isinstance(entry, str):
-            entry = {"pattern": entry}
-        if not isinstance(entry, dict) or not isinstance(entry.get("pattern"), str):
-            raise InquiryError(f"{path}: pattern {index} needs a regular expression")
-        try:
-            re.compile(entry["pattern"])
-        except re.error as error:
-            raise InquiryError(f"{path}: pattern {entry['pattern']!r}: {error}") from error
-        patterns.append(
-            Blocked(entry["pattern"], str(entry.get("what") or "off-limits material"))
-        )
-    return OffLimits(
-        _strings(path, data, "paths"),
-        tuple(patterns),
-        _strings(path, data, "deny_connectors"),
-    )

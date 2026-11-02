@@ -4,10 +4,7 @@
 # The link to the resource pool
 /resources
 
-# Off-limits list and its guards, never committed (names may be confidential)
-/.off-limits.yaml
-/.ignore
-/.claude/hooks/
+# Claude Code's local settings, the user's own
 /.claude/settings.local.json
 
 # Runs, outside git

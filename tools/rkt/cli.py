@@ -28,7 +28,7 @@ def _parser() -> argparse.ArgumentParser:
     )
     checker = commands.add_parser(
         "check",
-        help="check links, indexes, routes, findings, citations, phases and off-limits "
+        help="check links, indexes, routes, findings, citations and phases "
         "files against the rules",
     )
     checker.add_argument(

@@ -15,13 +15,13 @@ Agents make rigour affordable. Pre-registered protocols, verification on known c
 - Sub-inquiries are cloned into `inquiries/<name>/`, gitignored by the parent. The folder tree is the knowledge tree: `../..` from a child's root is its parent. Each inquiry is an independent git repository and works standalone.
 - `inquiry.yaml` (committed): `question`, `parent` (optional URL), `inquiries` (name, URL), `zotero_collection` (optional), `rule_packs`, `kit` (template URL at a tag, and the tool version). `resources.yaml` stays for code and data.
 - **spawn** `<name>`: a new inquiry in `inquiries/<name>/` from the parent's kit; its question and inherited constraints; registered in `inquiry.yaml` and the routing section; its Zotero subcollection; then the alignment step.
-- **adopt** `<url>`: clone into `inquiries/`; move its Zotero collection under the parent's; check its rules and off-limits against the inherited constraints and report conflicts for the user to settle (the child tightens); draft its route line from its index and findings; propose the shared sources to move up; the alignment step.
+- **adopt** `<url>`: clone into `inquiries/`; move its Zotero collection under the parent's; check its rules against the inherited constraints and report conflicts for the user to settle (the child tightens); draft its route line from its index and findings; propose the shared sources to move up; the alignment step.
 - **merge** of two repositories: a new root inquiry, then two adopts.
 - **detach**: the reverse of adopt; the child keeps a copy of every inherited constraint it relied on.
 
 ## Flow (ADR 0003, 0004)
 
-- **Down**: the question and the inherited constraints (core rules as tightened, rule packs, off-limits, pinned libraries). Knowledge by link to the parent's notes, never copied. A child tightens what it inherits, never loosens it. Off-limits is the one inheritance materialised by copy (a missing link would fail open).
+- **Down**: the question and the inherited constraints (core rules as tightened, rule packs, pinned libraries). Knowledge by link to the parent's notes, never copied. A child tightens what it inherits, never loosens it.
 - **Up**: findings only, one level at a time. A parent's finding about its own question cites the child's finding as evidence of kind `sub-inquiry`. Each level speaks its own question's terms.
 - **The tree never strengthens a claim**: a parent's finding is at most as strong as its weakest supporting sub-inquiry evidence.
 - **Routing and coverage**: every `docs/wiki/index.md` has a `## Sub-inquiries` section: one entry per child (link to its index, its question, status `active | closed | dormant`, "dive here for:" topics, quantities and methods, headline findings), then the sub-questions still open, then what is out of scope and why. The child updates its entry when it publishes upward. An agent asked at a broad scope reads the index, picks a route, descends, repeats; it searches across the tree only when no route matches.
@@ -53,12 +53,11 @@ Twelve core rules in `AGENTS.md`, in four groups, grounded in the literature of 
 | Tree | 11. The tree never strengthens a claim | status inflation on the way up | fixed |
 | Tree | 12. The human confirms: the user approves a confirm protocol before it is frozen, and each promotion to `confirmed`, after a blind `review-finding` | agent self-certification | fixed |
 
-Off-limits material is fixed too, stated in its own section rather than as a numbered rule.
 
 - Moved out of the core: canary reruns, run stamp, protocol freeze, conda pins, units in code (pint) → **rigour pack** (`rules/rigour.md` with its small code); nothing-derived-committed and never-edit-the-library → layout section of `AGENTS.md`; token hygiene (smaller-model subagents for well-scoped work, tool output near 50 lines, images cropped and read once, summary-printing scripts) → a **Working efficiently** section of `AGENTS.md`.
 - Domain rule packs (`fe-simulation`, `ml-training`, `uq-reliability`, `literature-check`) carried from the workspace template, optional.
 - **Guardian**, always on in `AGENTS.md`: when a request would break a rule, name the rule and the bias it guards against, judge whether that bias matters here, offer the compliant alternative, and let the user decide. Overriding an adjustable rule is logged as a deviation; a fixed rule is refused.
-- **Alignment step** at spawn and adopt, one screen: the twelve rules one line each with the active packs; the inherited constraints (read-only); "Keep the defaults, or adjust?" (Enter keeps); "Does this inquiry touch confidential material? Name the folders, patterns or connectors." (Enter: none). Adjusting grills only the named rules and writes `PLAN.md`'s Rules section.
+- **Alignment step** at spawn and adopt, one screen: the twelve rules one line each with the active packs; the inherited constraints (read-only); "Keep the defaults, or adjust?" (Enter keeps). Adjusting grills only the named rules and writes `PLAN.md`'s Rules section.
 
 ## Findings (ADR 0008, 0009)
 
@@ -68,8 +67,8 @@ Carried from the workspace template, one level up instead of to a hub: statuses 
 
 - **Text, copied into each inquiry**: `AGENTS.md` (rules, layout, flow, guardian, working efficiently), `CLAUDE.md` importing it, the skills, `rules/`. Spawn copies the parent's; an `upgrade` path in `ask-tree` diffs against a newer template tag and applies it with the user's approval.
 - **Skills** (8): `digest-source`, `update-wiki` (with move-up), `publish-finding`, `review-finding`, `spawn`, `adopt`, `detach`, `ask-tree` (router: next action, explaining a rule, pointing to the right mattpocock skill, upgrade). Each names the mattpocock skill it leans on (grilling in alignment, domain-modeling for the glossary and ADRs, tdd for phase code) instead of restating it.
-- **Tools**, one `uv tool` pinned in `inquiry.yaml` (`uvx research-knowledge-tree@<version> <command>`): `refs` (add, pull), `fetch`, `check`, the off-limits hook. No Python copied into inquiries.
-- **`check`**: links resolve; every note reachable from the entry index; no sideways links; `inquiry.yaml` sub-inquiries ↔ routing entries; finding statuses and evidence fields; rule 11 (no parent finding stronger than its sub-inquiry evidence); citekeys in `references.bib`, each with a DOI, arXiv id or URL or flagged as a hand-entered Zotero item; off-limits files present and a superset of the inherited set. One line per violation, non-zero exit. The rigour pack adds its own checks.
+- **Tools**, one `uv tool` pinned in `inquiry.yaml` (`uvx research-knowledge-tree@<version> <command>`): `refs` (add, pull), `fetch`, `check`. No Python copied into inquiries.
+- **`check`**: links resolve; every note reachable from the entry index; no sideways links; `inquiry.yaml` sub-inquiries ↔ routing entries; finding statuses and evidence fields; rule 11 (no parent finding stronger than its sub-inquiry evidence); citekeys in `references.bib`, each with a DOI, arXiv id or URL or flagged as a hand-entered Zotero item. One line per violation, non-zero exit. The rigour pack adds its own checks.
 - **mattpocock skills**: declared in `.claude/settings.json` (`extraKnownMarketplaces`, `enabledPlugins`) at a pinned release; README fallback for other harnesses. The glossary file takes the name that release's `domain-modeling` uses (`CONTEXT.md` in 1.2.3; check the latest release in slice 2).
 
 ## Resources (ADR 0011)
@@ -80,9 +79,9 @@ Carried from the workspace template, one level up instead of to a hub: statuses 
 - Mode detected, not configured: a Zotero key in the environment and a collection in `inquiry.yaml`.
 - The pool is outside git, read-only for agents; `resources/` in each inquiry links to it (or one environment variable names it).
 
-## Off-limits (ADR 0012)
+## Confidential material (ADR 0012)
 
-The names of off-limits material must not be committed, since an inquiry may be public. The list lives in a gitignored `.off-limits.yaml` beside `inquiry.yaml`; spawn and adopt copy the inherited union into the child and write the guards (deny rules and hook in `.claude/settings.json`, `.ignore`); `check` verifies the child's set is a superset of its parent's when the parent is present. A fresh clone is unguarded until the user restores the list; the README and the alignment step say so.
+None in the kit. An inquiry's scope is its folder, so confidential material is kept out of it; guarding it elsewhere on the machine is the harness's job (Claude Code's `permissions.deny`), set once per machine. The README says where. Decided on 2026-11-02 after slice 3: the off-limits list, hook, inheritance and checks were removed, and slice 6 with them.
 
 ## README
 
@@ -97,7 +96,7 @@ The names of off-limits material must not be committed, since an inquiry may be 
 
 - **Slice 2.** The kit is `kit/`: exactly the files a new inquiry has. The repository root is the template's own (tool source, tests, ADRs, README) and is not an inquiry; `rkt init` copies `kit/` into an empty folder, `spawn` copies the parent's text. The tool's command is `rkt`, installed once with `uv tool install` at the version `inquiry.yaml` pins. The glossary is `GLOSSARY.md` at the inquiry's root, as mattpocock-skills v1.3.2's `domain-modeling` writes it. The off-limits guards go to `.claude/settings.local.json` (out of git), so the committed `.claude/settings.json` carries only the mattpocock declaration. The `rigour` pack (`kit/rules/rigour.md`) states the moved mechanisms; its code is `rkt stamp` and `rkt freeze`.
 
-- **Slice 3.** `rkt` (`tools/rkt/`, package `research-knowledge-tree` 2.0.0, the kit shipped inside it): `init`, `refs add|pull`, `fetch [--tree]`, `check [--tree]`, `freeze`. One user configuration, `~/.config/rkt/config.yaml` (`pool`, `zotero`, `email`, `pdf_folder`, `upload_pdfs`), no per-tree sections; the pool is `RKT_POOL`, else the configuration's `pool`, else `~/research-pool`, shared by every tree on the machine; `fetch` links each inquiry's `resources/` to it. A Zotero collection is named by its path (`demo/framework`). The rigour pack's stamp is imported in the inquiry's own environment, so it is kit code, `kit/rules/rigour/study/`, copied to the inquiry's root as `study/` when the pack is selected; its `protocol.py` is kept identical to `rkt`'s (a test). `rkt guard` (slice 6) will write the off-limits files into `.claude/settings.local.json`.
+- **Slice 3.** `rkt` (`tools/rkt/`, package `research-knowledge-tree` 2.0.0, the kit shipped inside it): `init`, `refs add|pull`, `fetch [--tree]`, `check [--tree]`, `freeze`. One user configuration, `~/.config/rkt/config.yaml` (`pool`, `zotero`, `email`, `pdf_folder`, `upload_pdfs`), no per-tree sections; the pool is `RKT_POOL`, else the configuration's `pool`, else `~/research-pool`, shared by every tree on the machine; `fetch` links each inquiry's `resources/` to it. A Zotero collection is named by its path (`demo/framework`). The rigour pack's stamp is imported in the inquiry's own environment, so it is kit code, `kit/rules/rigour/study/`, copied to the inquiry's root as `study/` when the pack is selected; its `protocol.py` is kept identical to `rkt`'s (a test).
 
 ## Delivery
 
@@ -108,7 +107,7 @@ One branch, `knowledge-tree`; each slice reviewed by the user before the next; a
 3. **The tool and `check`**: package as a `uv tool`; `check` and its tests.
 4. **Resources**: `refs` bib-only mode; `fetch` through Zotero's local API (ZotMoov) and the pool; tests.
 5. **Skills**: the eight, with the alignment step; mattpocock dependency in `.claude/settings.json`.
-6. **Off-limits**: `.off-limits.yaml`, inheritance by copy, the hook, `check`.
+6. ~~Off-limits~~: dropped (ADR 0012).
 7. **README** and the setup guide.
 8. **Rename** to `research-knowledge-tree` (confirm with the user first), then the merge request.
 

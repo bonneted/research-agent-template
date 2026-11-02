@@ -55,38 +55,3 @@ def test_folder_in_a_links_place_is_kept_on_both(tmp_path: Path, windows: list) 
 
     assert links.directory(tmp_path / "link", tmp_path) == links.BLOCKED
     assert windows == []
-
-
-def test_file_link_is_a_symbolic_link_on_linux(tmp_path: Path) -> None:
-    target = tmp_path / "hub" / "hook.py"
-    target.parent.mkdir()
-    target.write_text("v1\n")
-    link = tmp_path / "repo" / "hook.py"
-
-    assert links.file(link, target) == []
-    assert link.is_symlink() and link.read_text() == "v1\n"
-    assert links.file_drift(link, target) is None
-
-
-def test_file_link_is_a_recorded_copy_on_windows(tmp_path: Path, windows: list) -> None:
-    target = tmp_path / "hub" / "hook.py"
-    target.parent.mkdir()
-    target.write_text("v1\n")
-    link = tmp_path / "repo" / "hook.py"
-
-    assert links.file(link, target) == []
-    assert not link.is_symlink() and link.read_text() == "v1\n"
-    assert (link.parent / links.COPIES).is_file()
-
-    # The hub's file moves on: an untouched copy follows it.
-    target.write_text("v2\n")
-    assert links.file_drift(link, target) == f"hook.py differs from {target}"
-    assert links.file(link, target) == []
-    assert link.read_text() == "v2\n"
-
-    # A copy edited by hand is reported, never overwritten.
-    link.write_text("mine\n")
-    target.write_text("v3\n")
-    [note] = links.file(link, target)
-    assert "edited since rkt copied it" in note
-    assert link.read_text() == "mine\n"

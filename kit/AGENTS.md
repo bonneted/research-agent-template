@@ -8,7 +8,7 @@ This repository is an **inquiry**: it owns one question, at any breadth, and is 
 
 - **Parent.** When `inquiry.yaml` names a `parent`, the parent's repository is `../..` (this inquiry sits in its `inquiries/<name>/`). Without one, this inquiry is a root, and works the same.
 - **Sub-inquiries** are cloned into `inquiries/<name>/`, out of this repository's git, and listed in `inquiry.yaml`. A broad question is answered by decomposing it into sub-inquiries plus this inquiry's own synthesis. This inquiry runs its own phases only for work no child owns (integration, cross-cutting comparison); a phase whose question fits under one child's belongs in that child.
-- **Down**, a child receives its question and the constraints this inquiry holds: the core rules as tightened in `PLAN.md`, the rule packs, the off-limits material, pinned libraries. It may tighten them, never loosen them. It reads this inquiry's notes by link, never copies them.
+- **Down**, a child receives its question and the constraints this inquiry holds: the core rules as tightened in `PLAN.md`, the rule packs, pinned libraries. It may tighten them, never loosen them. It reads this inquiry's notes by link, never copies them.
 - **Up**, a child gives findings, and nothing else, through `publish-finding`. This inquiry's own findings speak its question's terms and cite a child's finding as `sub-inquiry` evidence. Detail stays at the level it belongs to.
 - **Routing.** `docs/wiki/index.md` has a `## Sub-inquiries` section: each child with its question, status and what to dive there for; then the sub-questions still open; then what is out of scope and why. Asked a question broader than one note, read the index, pick a route, descend, repeat. Search across the tree only when no route matches.
 - **Grow the tree** with the skills: `spawn` (a sub-inquiry), `adopt` (an existing repository as a sub-inquiry; merging two is a new root and two adopts), `detach`.
@@ -55,8 +55,6 @@ Every inquiry follows these. **Fixed** rules are never set aside. **Adjustable**
 11. **The tree never strengthens a claim** (fixed). A finding is at most as strong as the weakest `sub-inquiry` evidence it rests on; a synthesis of hints is a hint.
 12. **The human confirms** (fixed). The user approves a confirm protocol before its first run, and each promotion to `confirmed`, after a blind `review-finding`. Never certify your own work.
 
-**Off-limits material** (fixed) is below.
-
 ## When a request would break a rule
 
 Say so before acting: name the rule, the bias it guards against, whether that bias matters here, and the way to do the task within the rule. Then the user decides. Overriding an adjustable rule is logged in `PLAN.md` as a deviation; a fixed rule is not overridden. Asked why a rule exists, answer the same way.
@@ -92,10 +90,6 @@ Keep the wiki current as part of the work, in the same turn:
 
 - **`references.bib`** lists every document (cite as `[@citekey]`); **`resources.yaml`** every code resource at a pinned commit and dataset with its sha256. `rkt fetch` brings what they list into `resources/` and prints what is still missing.
 - **Never write BibTeX.** Add a reference with `rkt refs add <DOI | arXiv id | URL>`; it prints the citekey. With a Zotero collection in `inquiry.yaml`, the reference is filed there and the `.bib` regenerated (`rkt refs pull` after editing in Zotero); a thesis, report or slides is added by the user in Zotero. Without one, `refs add` writes the entry itself.
-
-## Off-limits material
-
-When `.off-limits.yaml` exists (out of git, inherited from the parent), the paths, patterns and connectors it lists are off-limits: never open, search, list, convert or `git show` them, never ask the user to paste their content, and never write their content anywhere. A hook blocks the calls that name them; when it blocks one, do not look for another way in. When a task needs a value from that material, stop and ask the user, naming the quantity, its unit and what it is for, and offer a fallback (a literature value, a made-up value of the right magnitude, a parameter left open). Code takes such values as inputs, never as constants; tests use literature or made-up values. Prefer the Grep tool to a recursive shell search, which the hook cannot see into.
 
 ## Working efficiently
 
