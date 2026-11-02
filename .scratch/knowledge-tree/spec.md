@@ -36,7 +36,7 @@ Agents make rigour affordable. Pre-registered protocols, verification on known c
 
 ## Rules (ADR 0007, 0008, 0009, 0010)
 
-Twelve core rules in `AGENTS.md`, in four groups, grounded in the literature of `literature.md`. **Fixed** ones are never set aside; **adjustable** ones may be, with the reason in `PLAN.md` (Rules section). Wording to be finalised in slice 2; content:
+Twelve core rules in `AGENTS.md`, in four groups, grounded in the literature of `docs/literature.md`. **Fixed** ones are never set aside; **adjustable** ones may be, with the reason in `PLAN.md` (Rules section). Wording to be finalised in slice 2; content:
 
 | Group | Rule | Guards against | Kind |
 |---|---|---|---|

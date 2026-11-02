@@ -1,6 +1,6 @@
 # Literature behind the rules
 
-A short review grounding the twelve core rules in the standard literature on research bias, reproducibility, and ML and computational practice. It feeds the README's "Why these rules" section (slice 7).
+A short review grounding the twelve core rules in the standard literature on research bias, reproducibility, and ML and computational practice. The README's "Why these rules" links here.
 
 **How this was checked.** Every reference below was resolved on 2026-11-02 against Crossref by DOI, or against the arXiv API for the papers without a DOI: authors, year, title and venue are verified. What each paper *says* is summarised from prior knowledge of these widely cited works and was **not** re-read against the PDFs (rule 8: these are marked inferences until digested). Before the README quotes a specific number or claim from one of them, check that passage in the source.
 
