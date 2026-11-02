@@ -1,0 +1,11 @@
+# Twelve core rules, fixed or adjustable, guarded in every session
+
+The workspace template's eleven rules were reviewed one by one against the bias each guards. Kept: explore or confirm, verification before results (worded beyond simulation), every number traces (with its unit), no selection on the reported metric, uncertainty, a competent baseline (for comparisons), negative results published, and the consolidation levels. Added: source claims grounded and inferences marked, a claim states its scope, the tree never strengthens a claim, the human confirms. Moved out: canary reruns, run stamp, protocol freeze, conda pins and units in code to the **rigour pack**; repository hygiene to the layout; token hygiene to *Working efficiently* (ADR 0010).
+
+**Fixed** rules — every number traces, source claims grounded, negative results published, the tree never strengthens a claim, the human confirms, and off-limits material — are never set aside. The others are **adjustable**: an inquiry sets one aside with its reason in `PLAN.md` (a literature review has no baseline).
+
+The rules hold only if the user knows them. So spawn and adopt end with one screen: the rules, the inherited constraints, "keep the defaults or adjust?", and "does this inquiry touch confidential material?" — Enter keeps the defaults. And `AGENTS.md` makes the agent a **guardian**: a request that would break a rule gets the rule, the bias it guards against, whether that bias matters here, and the compliant alternative; the user decides, an override of an adjustable rule is logged as a deviation, a fixed rule is refused.
+
+## Consequences
+
+Domain rule packs (`fe-simulation`, `ml-training`, `uq-reliability`, `literature-check`) add to the core, numbered by pack.
