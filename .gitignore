@@ -1,12 +1,9 @@
-# Sources stay out of git
-resources/*
-!resources/README.md
-
 # Obsidian per-user state
-docs/.obsidian/workspace*.json
+.obsidian/workspace*.json
 
 # Python
 .venv/
 __pycache__/
 *.pyc
 .pytest_cache/
+.ruff_cache/

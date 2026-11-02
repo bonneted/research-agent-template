@@ -1,0 +1,10 @@
+# Code and data resources of this inquiry, fetched into the pool by `rkt fetch`.
+# Documents are in references.bib.
+code: []
+#  - name: solver
+#    url: https://github.com/org/solver.git
+#    commit: <full sha>
+data: []
+#  - name: test-data
+#    url: https://zenodo.org/records/<id>/files/data.zip
+#    sha256: <hash>

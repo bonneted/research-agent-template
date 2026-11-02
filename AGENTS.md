@@ -1,24 +1,10 @@
-# Project
+# research-knowledge-tree
 
-<!-- One or two lines: the research question and its scope. Written during project init (see README). -->
+This repository is the template of the knowledge tree: the kit an inquiry carries (`kit/`) and the source of the `rkt` tool (`tools/`). It is not itself an inquiry. Terms follow `GLOSSARY.md`; decisions are in `docs/adr/`; the plan of the current rework is `.scratch/knowledge-tree/spec.md`.
 
-Start from `docs/wiki/index.md`; vocabulary is in `docs/CONTEXT.md`, decisions in `docs/adr/`.
+## Working on the template
 
-## Layout
-
-- **`resources/`** is outside git and read-only: `papers/<citekey>.pdf`, `code/<name>/`, `data/<name>`, `legacy/` (anything else). Extract PDF text with `pdftotext` if available, otherwise `pypdf`.
-- **`references.bib`** and **`resources.yaml`** are the resource manifest: every document (cite in docs as `[@citekey]`), and every code resource at a pinned commit and dataset with its sha256. `uv run fetch` brings what they list into `resources/` and prints what is still missing.
-- **`references.bib` is written by `uv run refs`, never by hand or by you.** Add a reference with `uv run refs add <DOI | arXiv id | URL>`: it takes the metadata from Crossref, DataCite or arXiv and prints the citekey. A thesis, report or slides: ask the user to add it in Zotero, then `uv run refs pull`.
-- **`docs/`** is an Obsidian vault: `wiki/`, `CONTEXT.md`, `adr/`. Link notes with `[[note-name]]`.
-- **`src/`, `tests/`** hold the code; `tools/fetch/` holds the `fetch` and `refs` commands. Use `uv` for everything: `uv run python -m pytest`.
-
-## The wiki
-
-The wiki is the project memory, read by the user in Obsidian and by you. Before answering a question about the project, read `docs/wiki/index.md` and the notes it links, and cite the notes you used. When a claim comes from a document, check it against the passage in its source form or PDF.
-
-Keep the wiki current as part of the work, in the same turn:
-
-- **New resource** in `references.bib` or `resources.yaml`, or newly in `resources/` → follow `.agents/skills/digest-source/SKILL.md`.
-- **Code change** that adds a method, changes a result, or contradicts a note → follow `.agents/skills/update-wiki/SKILL.md`.
-
-**Parsimony rule:** one note per source or concept. A note states what this project uses or rejects from its subject, with a pointer to where it is used. A digest is a selection, never a full summary.
+- **`kit/`** is exactly what a new inquiry contains. `rkt init` copies it into an empty folder; `spawn` copies a parent's. Keep it free of any inquiry's names, and minimal: a mechanism an agent can rebuild from a rule does not belong in it. A change to a rule or a skill is a change to every future inquiry: record why in an ADR when it is hard to reverse.
+- **`kit/AGENTS.md`** holds the core rules. Their numbers are cited by the rule packs, the skills, the finding format and `PLAN.md`: renumbering one means updating them all (`grep -rn "rule [0-9]" kit/`).
+- **`tools/`** is the `rkt` package (`init`, `refs`, `fetch`, `check`, and the rigour pack's `freeze`; the stamp is kit code, `kit/rules/rigour/study/`). Run `uv run python -m pytest` and `uvx ruff check` before a commit.
+- The README is for someone who has never seen the template: start from the thesis, keep the five-minute path first.

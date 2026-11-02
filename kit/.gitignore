@@ -1,0 +1,20 @@
+# Sub-inquiries: independent repositories, cloned in place
+/inquiries/
+
+# The link to the resource pool
+/resources
+
+# Claude Code's local settings, the user's own
+/.claude/settings.local.json
+
+# Runs, outside git
+/runs/
+
+# Obsidian per-user state
+.obsidian/workspace*.json
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
