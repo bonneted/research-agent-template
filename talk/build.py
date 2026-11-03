@@ -470,11 +470,9 @@ def deck(template: Path, out: Path) -> None:
         ("Flanders Make", "https://www.flandersmake.be", "flandersmake.be")]  # fmt: skip
     for k, (name, url, shown) in enumerate(affiliations):
         cx = x0 + k * (col_w + gap) + col_w / 2
-        if k == 0:
-            logo = closing.shapes.add_picture(str(HERE / "logo-r2d.png"), 0, 0, height=Inches(logo_h * 0.75))
-        elif k == 1:
-            logo = text(closing, cx - col_w / 2, logo_y, col_w, logo_h, "LMSD", size=48, bold=True, color=ACCENT,
-                        align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE)  # fmt: skip
+        if k < 2:
+            png = HERE / ("logo-r2d.png", "logo-lmsd.png")[k]
+            logo = closing.shapes.add_picture(str(png), 0, 0, height=Inches(logo_h * 0.75))
         else:
             logo = pics["Picture 2"]
             logo.height, logo.width = Inches(logo_h), int(Inches(logo_h) * logo.width / logo.height)
