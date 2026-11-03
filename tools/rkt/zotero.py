@@ -14,7 +14,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from rkt import retrieve
 
@@ -132,6 +132,9 @@ class Library:
     api_key: str
     send: Send = send
     upload_pdfs: bool = False
+    # The top-level items by citekey, listed once: the Web API's search never matches
+    # a citekey (`citationKey` or Better BibTeX's line in Extra), so it is looked up here.
+    _by_citekey: dict[str, list[dict]] | None = field(default=None, init=False, repr=False)
 
     def _request(
         self,
@@ -233,14 +236,21 @@ class Library:
             item["data"] for item in self._all(f"items/top?q={query}&qmode=everything")
         ]
 
+    def with_citekey(self, key: str) -> list[dict]:
+        """The data of the top-level items holding the citekey `key`."""
+        if self._by_citekey is None:
+            self._by_citekey = {}
+            for item in self._all("items/top"):
+                if found := citekey(item["data"]):
+                    self._by_citekey.setdefault(found, []).append(item["data"])
+        return self._by_citekey.get(key, [])
+
     def unique_citekey(self, data: dict, taken: set[str]) -> str:
         """A citekey for `data`, held by no item of the library and not in `taken`."""
         base = made_citekey(data)
         for suffix in ["", *string.ascii_lowercase]:
             key = base + suffix
-            if key not in taken and not any(
-                citekey(other) == key for other in self.search(key)
-            ):
+            if key not in taken and not self.with_citekey(key):
                 return key
         raise ZoteroError(f"no free citekey from {base}: give the item one in Zotero")
 
@@ -257,6 +267,10 @@ class Library:
         )
         data.update(fields)
         data["version"] = int(_header(response, "Last-Modified-Version"))
+        if self._by_citekey is not None and (key := citekey(data)):
+            held = self._by_citekey.setdefault(key, [])
+            if all(other["key"] != data["key"] for other in held):
+                held.append(data)
 
     def create(self, data: dict) -> dict:
         """Create an item; returns its data. Raises `ReadOnly` if the key cannot write."""
@@ -283,7 +297,7 @@ class Library:
         Raises `QuotaFull`, leaving no attachment behind, if the library's file storage
         has no room for it.
         """
-        items = [data for data in self.search(key) if citekey(data) == key]
+        items = self.with_citekey(key)
         if not items:
             raise ZoteroError(f"no item with the citekey {key}")
         filename = f"{key}.pdf"

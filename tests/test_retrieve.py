@@ -173,10 +173,11 @@ def test_configured_order_is_zotero_arxiv_unpaywall(tmp_path: Path) -> None:
 
 
 def test_zotero_finds_the_attachment_of_the_item_with_the_citekey() -> None:
+    # Zotero's search never matches a citekey: the item is found in the listing.
     base = "https://api.zotero.org/users/1/items"
     web = Network(
         {
-            f"{base}?q=": json.dumps(
+            f"{base}/top?": json.dumps(
                 [
                     {"key": "OTHER", "data": {"citationKey": "raissi2019b"}},
                     {"key": "ITEM", "data": {"extra": "Citation Key: raissi2019"}},
@@ -193,6 +194,39 @@ def test_zotero_finds_the_attachment_of_the_item_with_the_citekey() -> None:
 
     assert pdf == PDF
     assert not any("OTHER" in url for url in web.asked)
+    assert not any("q=" in url for url in web.asked)
+
+
+def listed(count: int, citekey_at: dict[int, str]) -> dict[str, bytes]:
+    """The pages of a library of `count` top-level items, some with a citekey."""
+    items = [
+        {"key": f"I{n}", "data": {"citationKey": citekey_at.get(n, f"other{n}")}}
+        for n in range(count)
+    ]
+    base = "https://api.zotero.org/users/1/items"
+    return {
+        f"{base}/top?format=json&limit=100&start={start}": json.dumps(
+            items[start : start + 100]
+        ).encode()
+        for start in range(0, count + 1, 100)
+    }
+
+
+def test_zotero_reads_the_listing_page_by_page_once_for_every_entry() -> None:
+    base = "https://api.zotero.org/users/1/items"
+    pages = listed(230, {5: "first2020", 212: "late2021"})
+    for n in (5, 212):
+        pages[f"{base}/I{n}/children"] = json.dumps(
+            [{"key": f"A{n}", "data": {"contentType": "application/pdf"}}]
+        ).encode()
+        pages[f"{base}/A{n}/file"] = PDF
+    web = Network(pages)
+    source = retrieve.Zotero("users/1", "k", web)
+
+    assert source.retrieve(retrieve.Entry("late2021")) == PDF
+    assert source.retrieve(retrieve.Entry("first2020")) == PDF
+    assert source.retrieve(retrieve.Entry("absent2022")) is None
+    assert sum("/top?" in url for url in web.asked) == 3
 
 
 def test_unpaywall_downloads_the_open_access_pdf() -> None:

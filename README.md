@@ -61,7 +61,7 @@ bicycle/                       why does a moving bicycle stay upright?
 1. Install [uv](https://docs.astral.sh/uv/), then the tool:
 
    ```bash
-   uv tool install git+https://github.com/bonneted/research-knowledge-tree@v2.0.0
+   uv tool install git+https://github.com/bonneted/research-knowledge-tree@v2.0.1
    ```
 
 2. Make a folder an inquiry, and a git repository:

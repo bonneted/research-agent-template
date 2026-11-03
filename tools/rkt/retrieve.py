@@ -26,7 +26,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
 
@@ -177,6 +177,34 @@ def linked_file(data: dict, base: Path | None) -> Path | None:
     return None
 
 
+_PAGE = 100
+
+
+def _holds(data: dict, citekey: str) -> bool:
+    """Whether an item holds the citekey: Zotero 7's field, or Better BibTeX's line in Extra."""
+    return data.get("citationKey") == citekey or f"Citation Key: {citekey}" in (
+        data.get("extra") or ""
+    ).splitlines()
+
+
+def _with_citekey(
+    index: list[dict] | None, listing: Callable[[str], list[dict]], citekey: str
+) -> tuple[list[dict], list[dict]]:
+    """The top-level items holding the citekey, and the listing they were found in.
+
+    Zotero's search never matches a citekey, so the library's top-level items are listed
+    once, page by page (`index` is that listing, if already made), and read here.
+    """
+    if index is None:
+        index = []
+        while True:
+            page = listing(f"items/top?format=json&limit={_PAGE}&start={len(index)}")
+            index += page
+            if len(page) < _PAGE:
+                break
+    return [item for item in index if _holds(item.get("data", {}), citekey)], index
+
+
 def _read_pdf(path: Path | None) -> bytes | None:
     try:
         body = path.read_bytes() if path else None
@@ -196,6 +224,7 @@ class Zotero:
     # their records sync to the Web API, their files never do.
     base: Path | None = None
     name: str = "Zotero"
+    _index: list[dict] | None = field(default=None, init=False, repr=False)
 
     def _ask(self, path: str) -> bytes | None:
         return _ask(
@@ -219,15 +248,7 @@ class Zotero:
             raise RetrievalError(f"Zotero answered {path} with no JSON") from error
 
     def retrieve(self, entry: Entry) -> bytes | None:
-        query = urllib.parse.quote(entry.citekey)
-        # Zotero 7 keeps the citekey in its own field; Better BibTeX before it, in Extra.
-        items = [
-            item
-            for item in self._json(f"items?q={query}&qmode=everything&format=json")
-            if item.get("data", {}).get("citationKey") == entry.citekey
-            or f"Citation Key: {entry.citekey}"
-            in item.get("data", {}).get("extra", "").splitlines()
-        ]
+        items, self._index = _with_citekey(self._index, self._json, entry.citekey)
         for item in items:
             for child in self._json(f"items/{item['key']}/children?format=json"):
                 data = child.get("data", {})
@@ -258,6 +279,7 @@ class ZoteroLocal:
     storage: Path = Path("~/Zotero/storage")
     get: Get = _get
     name: str = "Zotero (local)"
+    _index: list[dict] | None = field(default=None, init=False, repr=False)
 
     def _json(self, path: str) -> list[dict]:
         body = _ask(self.get, f"{self.url}/{path}")
@@ -277,14 +299,7 @@ class ZoteroLocal:
         return None
 
     def retrieve(self, entry: Entry) -> bytes | None:
-        query = urllib.parse.quote(entry.citekey)
-        items = [
-            item
-            for item in self._json(f"items?q={query}&qmode=everything&format=json")
-            if item.get("data", {}).get("citationKey") == entry.citekey
-            or f"Citation Key: {entry.citekey}"
-            in item.get("data", {}).get("extra", "").splitlines()
-        ]
+        items, self._index = _with_citekey(self._index, self._json, entry.citekey)
         for item in items:
             for child in self._json(f"items/{item['key']}/children?format=json"):
                 if child.get("data", {}).get("contentType") != "application/pdf":
