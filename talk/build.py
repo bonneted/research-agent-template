@@ -116,6 +116,8 @@ def fill_text(tf, paras, size=15, color=DARK, bold=False, align=PP_ALIGN.LEFT, a
             f.bold = style.get("bold", bold)
             f.italic = style.get("italic", italic)
             f.color.rgb = style.get("color", color)
+            if "link" in style:
+                r.hyperlink.address = style["link"]
 
 
 def box(slide, x, y, w, h, fill=LIGHT, kind=MSO_SHAPE.ROUNDED_RECTANGLE, radius=0.06, line=None):
@@ -452,6 +454,36 @@ def deck(template: Path, out: Path) -> None:
     notes(s, "The easiest setup is to let your agent do it: give it the repository and your question. It "
              "installs the tool, makes the folder an inquiry, interviews you and shows you the rules. Start "
              "small; the tree grows when the question asks for it.")
+
+    # 12. Closing: the author, then the three affiliations in evenly spaced columns, each a logo,
+    # a name and a link. The template's EU funding notice is removed.
+    pics = {sh.name: sh for sh in closing.shapes}
+    for name in ("ZoneTexte 7", "Image 6", "Group 18"):
+        pics[name]._element.getparent().remove(pics[name]._element)
+    text(closing, 0.63, 1.5, 12.07, 1.0,
+         [[("Damien Bonnet-Eymard", {"bold": True, "color": ACCENT, "size": 24})], "KU Leuven"],
+         size=16, align=PP_ALIGN.CENTER)  # fmt: skip
+    col_w, gap, x0, logo_y, logo_h = 3.6, 0.63, 0.63 + (12.07 - 3 * 3.6 - 2 * 0.63) / 2, 3.1, 1.2
+    affiliations = [
+        ("Reliable & Robust Design (R2D)", "https://iiw.kuleuven.be/onderzoek/R2D", "iiw.kuleuven.be/onderzoek/R2D"),
+        ("Mecha(tro)nic System Dynamics", "https://www.mech.kuleuven.be/en/mod", "mech.kuleuven.be/en/mod"),
+        ("Flanders Make", "https://www.flandersmake.be", "flandersmake.be")]  # fmt: skip
+    for k, (name, url, shown) in enumerate(affiliations):
+        cx = x0 + k * (col_w + gap) + col_w / 2
+        if k == 0:
+            logo = closing.shapes.add_picture(str(HERE / "logo-r2d.png"), 0, 0, height=Inches(logo_h * 0.75))
+        elif k == 1:
+            logo = text(closing, cx - col_w / 2, logo_y, col_w, logo_h, "LMSD", size=48, bold=True, color=ACCENT,
+                        align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE)  # fmt: skip
+        else:
+            logo = pics["Picture 2"]
+            logo.height, logo.width = Inches(logo_h), int(Inches(logo_h) * logo.width / logo.height)
+        logo.left = int(Inches(cx) - logo.width / 2)
+        logo.top = int(Inches(logo_y + logo_h / 2) - logo.height / 2)
+        logo.click_action.hyperlink.address = url
+        text(closing, cx - col_w / 2, logo_y + logo_h + 0.35, col_w, 0.9,
+             [[(name, {"bold": True})], [(shown, {"color": ACCENT, "size": 13, "link": url})]],
+             size=15, align=PP_ALIGN.CENTER)  # fmt: skip
 
     move_to_end(prs, closing)
     renumber(prs)
