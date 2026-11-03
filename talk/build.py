@@ -226,7 +226,7 @@ def deck(template: Path, out: Path) -> None:
     set_paragraphs(subtitles[0], ["Lab seminar"])
     head = shapes["TextBox 9"]
     text(title, head.left / 914400, (head.top + head.height) / 914400 + 0.05, 8.6, 0.6,
-         "Rigour made affordable: a knowledge tree of inquiries", size=20, color=ACCENT)
+         "Rigour made affordable: a knowledge tree of inquiries", size=20, color=WHITE)
     set_paragraphs(subtitles[1], ["Damien Bonnet-Eymard"])
     shapes["TextBox 2"].width = Inches(4.0)
     set_paragraphs(shapes["TextBox 2"], ["November 2026"])
@@ -242,10 +242,10 @@ def deck(template: Path, out: Path) -> None:
                 ("It agrees with you",
                  ["Models tend to tell users what they want to hear.", "Sharma et al. 2024"])]
     for k, (head, (body, source)) in enumerate(failures):
-        card(s, 0.63 + k * 4.1, 1.55, 3.87, 3.4, head,
+        card(s, 0.63 + k * 4.1, 1.75, 3.87, 2.3, head,
              [body, [(source, {"italic": True, "color": GREY, "size": 12})]],
              badge="!", badge_fill=GOLD, title_color=DARK, title_size=15)  # fmt: skip
-    banner(s, 5.45, "Research has long known the cure: preregistration, verification, published negatives, "
+    banner(s, 4.45, "Research has long known the cure: preregistration, verification, published negatives, "
                     "review. It could rarely afford all of it.", fill=DARK, h=0.8, size=16)  # fmt: skip
     notes(s, "Three failures an agent amplifies. Fabricated citations look exactly like real ones. Trying "
              "variants used to cost days; an agent tries forty in an afternoon and shows you the one that "
@@ -261,12 +261,12 @@ def deck(template: Path, out: Path) -> None:
                "forty variants, one reported; invented citations"),
               ("The tree", "The human confirms, after a blind review.", "the agent agreeing with you")]  # fmt: skip
     for k, (head, rule, fixes) in enumerate(groups):
-        card(s, 0.63 + k * 3.09, 1.55, 2.86, 3.5, head,
+        card(s, 0.63 + k * 3.09, 1.55, 2.86, 2.75, head,
              [rule, [("fixes: ", {"bold": True, "color": GOLD}), (fixes, {"italic": True})]],
              badge=k + 1, body_size=14)  # fmt: skip
-    banner(s, 5.35, "12 rules, 5 of them fixed. The agent shows them to you at the start, and asks before you "
+    banner(s, 4.6, "12 rules, 5 of them fixed. The agent shows them to you at the start, and asks before you "
                     "set one aside.", h=0.7)  # fmt: skip
-    text(s, 0.63, 6.15, 12.07, 0.4, "Grounded in the reproducibility literature: Ioannidis 2005; Munafò et al. "
+    text(s, 0.63, 5.4, 12.07, 0.4, "Grounded in the reproducibility literature: Ioannidis 2005; Munafò et al. "
          "2017; full map in docs/literature.md.", size=11, italic=True, color=GREY)  # fmt: skip
     notes(s, "Each rule answers a failure from the previous slide. Planning: a confirm phase fixes its "
              "analysis, stopping rule and the result that would refute it before it runs. Evidence: every "
@@ -354,7 +354,7 @@ def deck(template: Path, out: Path) -> None:
              ("Knowledge flows", "Down by link, up by findings, one level at a time; never sideways.")]  # fmt: skip
     for k, (head, body) in enumerate(steps):
         card(s, 7.5, 1.55 + k * 1.2, 5.2, 1.08, head, None, title_size=15)
-        text(s, 9.15, 1.6 + k * 1.2, 3.5, 1.0, body, size=12.5, anchor=MSO_ANCHOR.MIDDLE)
+        text(s, 9.6, 1.6 + k * 1.2, 3.05, 1.0, body, size=12.5, anchor=MSO_ANCHOR.MIDDLE)
     banner(s, 5.35, "Every index routes to its children, the open questions and what is out of scope: asked a "
                     "broad question, the agent descends one index at a time.", h=0.8, size=15)  # fmt: skip
     notes(s, "Start with one inquiry. When the question proves too broad, it spawns sub-inquiries for its "
@@ -408,9 +408,9 @@ def deck(template: Path, out: Path) -> None:
               ("Cost and lock-in",
                ["Subscriptions, quotas and leaders change.", "Plain Markdown keeps your work portable."])]
     for k, (head, body) in enumerate(limits):
-        card(s, 0.63 + k * 4.1, 1.55, 3.87, 3.3, head, body, badge="!", badge_fill=GOLD, title_color=DARK,
+        card(s, 0.63 + k * 4.1, 1.75, 3.87, 2.4, head, body, badge="!", badge_fill=GOLD, title_color=DARK,
              title_size=15)
-    banner(s, 5.35, "You remain the author: of the questions, of the code you merge, and of every claim you sign.",
+    banner(s, 4.5, "You remain the author: of the questions, of the code you merge, and of every claim you sign.",
            fill=DARK, h=0.7)  # fmt: skip
     notes(s, "Three limits. The rules reduce errors, they do not abolish them. Whatever the agent reads is "
              "sent to the provider: check your institution's and your partners' rules, and keep confidential "
@@ -424,11 +424,11 @@ def deck(template: Path, out: Path) -> None:
         [("Rule 12 builds that in: ", {"bold": True, "color": ACCENT}),
          (("you approve every protocol and every confirmed finding. Staying in the loop is part of the method, "
           "not a wish."), {})]], size=17, space=16)  # fmt: skip
-    card(s, 7.35, 1.55, 5.35, 3.9, "Use the agent to learn",
+    card(s, 7.35, 1.55, 5.35, 3.0, "Use the agent to learn",
          ["Ask it to explain, then explain it back", "Derive by hand, then let it check you",
           "Read the digest, then the paper", "Let a grilling skill question your plan",
           "The wiki is written for you too: read it"], body_size=14)  # fmt: skip
-    banner(s, 5.75, "A result nobody understands, remembers or communicates is wasted computation.", fill=DARK,
+    banner(s, 4.9, "A result nobody understands, remembers or communicates is wasted computation.", fill=DARK,
            h=0.7)  # fmt: skip
     notes(s, "The pace is real: weeks of work redone in an afternoon, and this kit itself may not survive the "
              "next generation of tools. What keeps its value is yours: the questions, the judgement, the "
@@ -440,11 +440,12 @@ def deck(template: Path, out: Path) -> None:
     code(s, 0.63, 1.55, 12.07, 1.5, [
         f"Install research-knowledge-tree from {REPO},",
         "make this folder an inquiry, and start it.",
-        "My question is: …"], size=18)  # fmt: skip
-    card(s, 0.63, 3.3, 5.9, 2.25, "Or by hand",
-         [[(f"uv tool install git+https://{REPO}@v2.0.0", {"font": MONO, "size": 12})],
+        "My question is: …"], size=16)  # fmt: skip
+    card(s, 0.63, 3.3, 7.0, 2.25, "Or by hand",
+         [[("uv tool install \\", {"font": MONO, "size": 11})],
+          [(f"  git+https://{REPO}@v2.0.0", {"font": MONO, "size": 11})],
           [("rkt init", {"font": MONO, "size": 12}), ("   then: “start the inquiry”", {})]], body_size=14)  # fmt: skip
-    card(s, 6.8, 3.3, 5.9, 2.25, "You need",
+    card(s, 7.9, 3.3, 4.8, 2.25, "You need",
          ["An agent: Claude Code, Codex, Gemini CLI…", "Obsidian, to read the wiki",
           "Zotero: recommended, not required"], body_size=14)  # fmt: skip
     banner(s, 5.8, "Start small: one inquiry, five papers, one question.", h=0.7)
