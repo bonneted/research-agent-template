@@ -15,4 +15,4 @@ rule_packs: []          # packs of rules/ followed besides the core rules, e.g. 
 
 kit:                    # where this inquiry's text came from, for upgrades (ask-tree)
   template: https://github.com/bonneted/research-knowledge-tree
-  version: 2.0.1        # the template tag, and the rkt version to run
+  version: 2.0.2        # the template tag, and the rkt version to run

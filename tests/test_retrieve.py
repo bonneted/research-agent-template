@@ -433,3 +433,26 @@ def test_the_synced_folder_serves_the_web_api_too(tmp_path: Path) -> None:
 
     assert [source.name for source in sources] == ["Zotero", "arXiv"]
     assert sources[0].base == Path("~/ZotMoov").expanduser()
+
+
+def test_web_zotero_reads_a_stored_file_from_the_synced_folder_by_citekey(
+    tmp_path: Path,
+) -> None:
+    # The file is stored in Zotero on another machine, never synced to Zotero's cloud
+    # (404), but ZotMoov's folder, synced over a drive, holds it under its citekey.
+    synced = tmp_path / "ZotMoov"
+    synced.mkdir()
+    (synced / "raissi2019.pdf").write_bytes(PDF)
+    stored = pdf_attachment(linkMode="imported_url", filename="Raissi - 2019.pdf")
+
+    def api(url: str, headers: dict) -> bytes:
+        if url.endswith("/file"):
+            raise urllib.error.HTTPError(url, 404, "Not Found", None, None)  # type: ignore[arg-type]
+        return LocalApi(stored)(url, headers)
+
+    found = retrieve.Zotero("users/1", "key", api, base=synced)
+    without = retrieve.Zotero("users/1", "key", api)
+
+    assert found.retrieve(retrieve.Entry("raissi2019")) == PDF
+    assert without.retrieve(retrieve.Entry("raissi2019")) is None
+    assert found.retrieve(retrieve.Entry("someone2020")) is None
