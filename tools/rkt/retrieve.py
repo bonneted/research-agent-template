@@ -12,6 +12,7 @@ Their configuration is the user's `$XDG_CONFIG_HOME/rkt/config.yaml` (by default
     zotero_local: true           # ask the Zotero app (or the URL of its local API)
     zotero_base: ~/ZotMoov       # ZotMoov's folder: the linked attachment base folder,
                                  # or its copy synced over a drive (no Zotero app needed)
+                                 # and, for a stored file, <citekey>.pdf there
     zotero_storage: ~/Zotero/storage
     email: you@example.org       # Unpaywall asks for one; without it, it is skipped
     zotero:
@@ -221,7 +222,8 @@ class Zotero:
     api_key: str
     get: Get = _get
     # Where linked files are on this machine (a ZotMoov folder synced over a drive):
-    # their records sync to the Web API, their files never do.
+    # their records sync to the Web API, their files never do. A stored file Zotero's
+    # cloud lacks is looked for there too, as `<citekey>.pdf`.
     base: Path | None = None
     name: str = "Zotero"
     _index: list[dict] | None = field(default=None, init=False, repr=False)
@@ -260,6 +262,10 @@ class Zotero:
                     body = self._file(child["key"])
                 if body and _is_pdf(body):
                     return body
+        # A file stored in Zotero on another machine may never reach Zotero's cloud;
+        # the synced folder may still hold it under its citekey, as ZotMoov names it.
+        if items and self.base is not None:
+            return _read_pdf(self.base / f"{entry.citekey}.pdf")
         return None
 
 

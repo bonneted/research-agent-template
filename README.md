@@ -61,7 +61,7 @@ bicycle/                       why does a moving bicycle stay upright?
 1. Install [uv](https://docs.astral.sh/uv/), then the tool:
 
    ```bash
-   uv tool install git+https://github.com/bonneted/research-knowledge-tree@v2.0.1
+   uv tool install git+https://github.com/bonneted/research-knowledge-tree@v2.0.2
    ```
 
 2. Make a folder an inquiry, and a git repository:
@@ -145,7 +145,7 @@ They are the standard countermeasures of the reproducibility literature, chosen 
    zotero:
      library: users/1234567
      api_key: <the key>
-   zotero_base: ~/OneDrive/ZotMoov   # the ZotMoov folder, or its synced copy
+   zotero_base: ~/OneDrive/ZotMoov   # the ZotMoov folder, or its synced copy (also read as <citekey>.pdf)
    zotero_local: true                # only where the Zotero app runs: ask it directly
    email: you@example.org            # for Unpaywall
    ```
