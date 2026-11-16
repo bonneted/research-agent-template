@@ -58,6 +58,8 @@ bicycle/                       why does a moving bicycle stay upright?
 
 ## Start in five minutes
 
+A simpler project (a topic to keep in order, a supervision, a side project) that needs a tidy memory but no rules or findings? Start from the light [agent wiki template](https://github.com/bonneted/agent-wiki-template), the first version of this one: sources → wiki ← code, nothing more.
+
 1. Install [uv](https://docs.astral.sh/uv/), then the tool:
 
    ```bash
